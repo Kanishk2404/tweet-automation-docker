@@ -6,7 +6,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { TwitterApi } = require('twitter-api-v2');
-const OpenAI = require('openai');
+// const OpenAI = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
@@ -36,16 +36,7 @@ if (!fs.existsSync('uploads')) {
 const ACCESS_CODE = process.env.ACCESS_CODE || "tweetmaster2025";
 const PORT = process.env.PORT || 5000;
 
-// Initialize OpenAI client
-let openaiClient = null;
-if (process.env.OPENAI_API_KEY) {
-    openaiClient = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-    });
-    console.log('OpenAI API initialized successfully');
-} else {
-    console.log('OpenAI API key not found. AI generation disabled.');
-}
+// OpenAI support removed
 
 // Initialize Gemini client
 let geminiClient = null;
@@ -82,7 +73,7 @@ app.get('/', (req, res) => {
         services: {
             twitter: !!twitterClient,
             gemini: !!geminiClient,
-            openai: !!openaiClient
+            // openai: !!openaiClient
         }
     });
 });
@@ -100,11 +91,11 @@ app.post('/auth', (req, res) => {
 // Generate tweet endpoint
 app.post('/generate-tweet', async (req, res) => {
     try {
-        // Check if any AI service is available
-        if (!geminiModel && !openaiClient) {
+        // Check if Gemini is available
+        if (!geminiModel) {
             return res.json({ 
                 success: false, 
-                message: "AI generation disabled. Add Gemini or OpenAI API key to enable this feature." 
+                message: "AI generation disabled. Add Gemini API key to enable this feature." 
             });
         }
 
@@ -117,35 +108,14 @@ app.post('/generate-tweet', async (req, res) => {
 
         let generatedTweet = '';
 
-        // Always prioritize Gemini first
-        if (geminiModel) {
-            console.log('Using Gemini AI for tweet generation...');
-            const result = await geminiModel.generateContent(
-                `You are a social media expert who creates viral, engaging tweets. Always stay within 280 characters and make content that resonates with audiences.\n\n${prompt}`
-            );
-            const response = await result.response;
-            generatedTweet = response.text().trim();
-            console.log('✅ Generated tweet with Gemini:', generatedTweet);
-        } else if (openaiClient) {
-            console.log('Using OpenAI as Gemini is not available...');
-            const completion = await openaiClient.chat.completions.create({
-                model: "gpt-3.5-turbo",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are a social media expert who creates viral, engaging tweets. Always stay within 280 characters and make content that resonates with audiences."
-                    },
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-                max_tokens: 100,
-                temperature: 0.8,
-            });
-            generatedTweet = completion.choices[0].message.content.trim();
-            console.log('✅ Generated tweet with OpenAI:', generatedTweet);
-        }
+        // Use Gemini only
+        console.log('Using Gemini AI for tweet generation...');
+        const result = await geminiModel.generateContent(
+            `You are a social media expert who creates viral, engaging tweets. Always stay within 280 characters and make content that resonates with audiences.\n\n${prompt}`
+        );
+        const response = await result.response;
+        generatedTweet = response.text().trim();
+        console.log('✅ Generated tweet with Gemini:', generatedTweet);
         
         // Remove quotes if the AI added them
         const cleanTweet = generatedTweet.replace(/^["']|["']$/g, '');
@@ -159,38 +129,7 @@ app.post('/generate-tweet', async (req, res) => {
     } catch (error) {
         console.error('❌ Error generating tweet:', error);
         
-        // If Gemini fails, try OpenAI as fallback
-        if (error.message && geminiModel && openaiClient) {
-            try {
-                console.log('🔄 Gemini failed, trying OpenAI fallback...');
-                const completion = await openaiClient.chat.completions.create({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        {
-                            role: "system",
-                            content: "You are a social media expert who creates viral, engaging tweets. Always stay within 280 characters and make content that resonates with audiences."
-                        },
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ],
-                    max_tokens: 100,
-                    temperature: 0.8,
-                });
-                const generatedTweet = completion.choices[0].message.content.trim();
-                const cleanTweet = generatedTweet.replace(/^["']|["']$/g, '');
-                console.log('✅ Generated tweet with OpenAI (fallback):', cleanTweet);
-                
-                return res.json({
-                    success: true,
-                    content: cleanTweet,
-                    message: "Tweet generated successfully with fallback AI!"
-                });
-            } catch (fallbackError) {
-                console.error('❌ Both AI services failed:', fallbackError);
-            }
-        }
+        // No OpenAI fallback
         
         res.status(500).json({
             success: false,
