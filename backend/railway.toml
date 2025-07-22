@@ -1,6 +1,3 @@
-# Railway deployment configuration
-nixpacks.toml
-
 [build]
   cmd = "npm install"
 
