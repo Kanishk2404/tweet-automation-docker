@@ -1,0 +1,11 @@
+# Railway deployment configuration
+nixpacks.toml
+
+[build]
+  cmd = "npm install"
+
+[start]
+  cmd = "npm start"
+
+[deploy]
+  healthcheckPath = "/"

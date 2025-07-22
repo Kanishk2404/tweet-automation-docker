@@ -74,6 +74,19 @@ if (process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET &&
     console.log('Twitter API keys not found. Tweet posting disabled.');
 }
 
+// Health check endpoint for Railway
+app.get('/', (req, res) => {
+    res.json({ 
+        status: 'Tweet Automator Backend is running!',
+        timestamp: new Date().toISOString(),
+        services: {
+            twitter: !!twitterClient,
+            gemini: !!genAI,
+            openai: !!openaiClient
+        }
+    });
+});
+
 // Auth endpoint
 app.post('/auth', (req, res) => {
     const { password } = req.body;

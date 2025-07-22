@@ -9,6 +9,9 @@ function App() {
   const [imagePreview, setImagePreview] = useState(null);
   const [aiPrompt, setAiPrompt] = useState('');
   
+  // Use environment variable for API URL, fallback to localhost for development
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  
 
   return (
     <>
@@ -26,7 +29,7 @@ function App() {
 
           <button onClick={() => {
             console.log('Login button clicked, password:', password);
-            fetch('http://localhost:5000/auth', {
+            fetch(`${API_URL}/auth`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -121,7 +124,7 @@ function App() {
 
           <div className="button-container">
             <button className="ai-btn" onClick = {() => {
-              fetch('http://localhost:5000/generate-tweet', {
+              fetch(`${API_URL}/generate-tweet`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
@@ -150,7 +153,7 @@ function App() {
                   formData.append('image', selectedImage);
                 }
 
-                fetch('http://localhost:5000/post-tweet', {
+                fetch(`${API_URL}/post-tweet`, {
                   method: 'POST',
                   body: formData // Don't set Content-Type header, let browser set it for FormData
                 })
