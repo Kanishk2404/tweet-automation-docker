@@ -1,6 +1,7 @@
 # 🐦 Tweet Automator
 
 A professional, full-stack Twitter automation tool with AI-powered content generation and image support.
+* Currently, it will only work for the Gemini key. I have removed openAI functionality for some reasons *
 
 ## ✨ Features
 
