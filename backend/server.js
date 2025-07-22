@@ -81,7 +81,7 @@ app.get('/', (req, res) => {
         timestamp: new Date().toISOString(),
         services: {
             twitter: !!twitterClient,
-            gemini: !!genAI,
+            gemini: !!geminiClient,
             openai: !!openaiClient
         }
     });
