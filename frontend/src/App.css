@@ -7,7 +7,10 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: radial-gradient(ellipse at center, #1a1a1a 0%, #000000 70%);
+  background: 
+    linear-gradient(135deg, #667eea 0%, #764ba2 100%),
+    radial-gradient(ellipse at center, #1a1a1a 0%, #000000 70%);
+  background-blend-mode: overlay;
   min-height: 100vh;
   color: #333;
   position: relative;
@@ -22,11 +25,17 @@ body::before {
   width: 100%;
   height: 100%;
   background: 
-    radial-gradient(circle at 20% 80%, rgba(29, 161, 242, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(123, 104, 238, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(29, 161, 242, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 80%, rgba(29, 161, 242, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(123, 104, 238, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
   pointer-events: none;
   z-index: -1;
+  animation: backgroundShift 20s ease-in-out infinite;
+}
+
+@keyframes backgroundShift {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.1) rotate(2deg); }
 }
 
 #root {
@@ -42,32 +51,46 @@ body::before {
 /* Header */
 h1 {
   color: white;
-  font-size: 3.2rem;
-  font-weight: 800;
+  font-size: 3.5rem;
+  font-weight: 900;
   text-align: center;
   margin-bottom: 3rem;
   text-shadow: 
-    0 4px 8px rgba(0,0,0,0.5),
-    0 2px 4px rgba(29, 161, 242, 0.3);
-  letter-spacing: -1px;
-  background: linear-gradient(135deg, #ffffff, #e2e8f0);
+    0 6px 12px rgba(0,0,0,0.6),
+    0 3px 6px rgba(29, 161, 242, 0.4);
+  letter-spacing: -2px;
+  background: linear-gradient(135deg, #ffffff, #e2e8f0, #1da1f2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   position: relative;
+  animation: titleGlow 4s ease-in-out infinite;
+}
+
+@keyframes titleGlow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.1); }
 }
 
 h1::after {
   content: '';
   position: absolute;
-  bottom: -10px;
+  bottom: -15px;
   left: 50%;
   transform: translateX(-50%);
-  width: 100px;
-  height: 4px;
-  background: linear-gradient(90deg, #1da1f2, #7b68ee);
-  border-radius: 2px;
-  box-shadow: 0 2px 8px rgba(29, 161, 242, 0.5);
+  width: 120px;
+  height: 5px;
+  background: linear-gradient(90deg, #1da1f2, #7b68ee, #ff6b6b);
+  border-radius: 3px;
+  box-shadow: 
+    0 3px 12px rgba(29, 161, 242, 0.6),
+    0 1px 3px rgba(0,0,0,0.3);
+  animation: underlineGlow 3s ease-in-out infinite;
+}
+
+@keyframes underlineGlow {
+  0%, 100% { box-shadow: 0 3px 12px rgba(29, 161, 242, 0.6), 0 1px 3px rgba(0,0,0,0.3); }
+  50% { box-shadow: 0 5px 20px rgba(29, 161, 242, 0.8), 0 2px 6px rgba(0,0,0,0.4); }
 }
 
 h2 {
@@ -80,22 +103,56 @@ h2 {
 
 /* Card Container */
 .login-container, .main-app {
-  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(145deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.9) 50%,
+    rgba(241, 245, 249, 0.85) 100%);
   padding: 4rem 3.5rem;
-  border-radius: 24px;
+  border-radius: 28px;
   box-shadow: 
-    0 32px 64px rgba(0, 0, 0, 0.4),
-    0 16px 32px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+    0 40px 80px rgba(0, 0, 0, 0.5),
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(25px);
+  border: 2px solid rgba(255, 255, 255, 0.4);
   position: relative;
   overflow: hidden;
   transform-style: preserve-3d;
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.login-container:hover, .main-app:hover {
+  transform: translateY(-5px);
+  box-shadow: 
+    0 50px 100px rgba(0, 0, 0, 0.6),
+    0 25px 50px rgba(0, 0, 0, 0.4),
+    inset 0 2px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .login-container::before, .main-app::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, 
+    transparent, 
+    rgba(29, 161, 242, 0.03), 
+    transparent, 
+    rgba(123, 104, 238, 0.03));
+  animation: shimmer 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% { transform: rotate(0deg) translate(-50%, -50%); }
+  100% { transform: rotate(360deg) translate(-50%, -50%); }
+}
+
+.login-container::after, .main-app::after {
   content: '';
   position: absolute;
   top: 0;
@@ -139,7 +196,7 @@ h2 {
 }
 
 /* Input Fields */
-input[type="password"], textarea {
+input[type="password"], textarea, .ai-prompt-input {
   width: 100%;
   padding: 1.25rem 1.5rem;
   border: 2px solid rgba(226, 232, 240, 0.8);
@@ -152,9 +209,10 @@ input[type="password"], textarea {
   box-shadow: 
     inset 0 2px 4px rgba(0, 0, 0, 0.06),
     0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
-input[type="password"]:focus, textarea:focus {
+input[type="password"]:focus, textarea:focus, .ai-prompt-input:focus {
   outline: none;
   border-color: #1da1f2;
   background: white;
@@ -163,6 +221,36 @@ input[type="password"]:focus, textarea:focus {
     inset 0 2px 4px rgba(0, 0, 0, 0.06),
     0 8px 25px rgba(29, 161, 242, 0.15);
   transform: translateY(-2px);
+}
+
+/* AI Prompt Section */
+.ai-prompt-section {
+  margin: 2rem 0;
+  position: relative;
+}
+
+.ai-prompt-input {
+  background: linear-gradient(145deg, #f0f9ff, #e0f2fe);
+  border: 2px solid rgba(29, 161, 242, 0.2);
+  padding: 1.25rem 1.5rem 1.25rem 3rem;
+  position: relative;
+}
+
+.ai-prompt-input::before {
+  content: '🤖';
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+}
+
+.ai-prompt-input:focus {
+  border-color: #1da1f2;
+  background: linear-gradient(145deg, #ffffff, #f0f9ff);
+  box-shadow: 
+    0 0 0 4px rgba(29, 161, 242, 0.15),
+    0 8px 25px rgba(29, 161, 242, 0.2);
 }
 
 textarea {
@@ -189,7 +277,7 @@ textarea {
 button {
   padding: 1.25rem 2.5rem;
   border: none;
-  border-radius: 16px;
+  border-radius: 18px;
   font-size: 1.1rem;
   font-weight: 700;
   cursor: pointer;
@@ -200,6 +288,22 @@ button {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   font-size: 0.95rem;
+  backdrop-filter: blur(10px);
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+button:hover::before {
+  left: 100%;
 }
 
 /* Login Button */
@@ -210,7 +314,7 @@ button {
   font-size: 1.1rem;
   padding: 1.5rem;
   box-shadow: 
-    0 8px 25px rgba(29, 161, 242, 0.4),
+    0 10px 30px rgba(29, 161, 242, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -218,7 +322,7 @@ button {
   background: linear-gradient(135deg, #0d8bd9 0%, #1991db 50%, #1da1f2 100%);
   transform: translateY(-4px) scale(1.02);
   box-shadow: 
-    0 16px 40px rgba(29, 161, 242, 0.5),
+    0 20px 50px rgba(29, 161, 242, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
@@ -229,37 +333,44 @@ button {
 /* Button Container */
 .button-container {
   display: flex;
-  gap: 1rem;
-  margin: 2rem 0;
+  gap: 1.5rem;
+  margin: 2.5rem 0;
 }
 
 /* AI Generate Button */
 .ai-btn {
   flex: 1;
-  background: linear-gradient(45deg, #7b68ee, #9370db);
+  background: linear-gradient(135deg, #7b68ee 0%, #9370db 50%, #8a2be2 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
 }
 
 .ai-btn:hover {
-  background: linear-gradient(45deg, #6a5acd, #8b7bd8);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(123, 104, 238, 0.3);
+  background: linear-gradient(135deg, #6a5acd 0%, #8b7bd8 50%, #9370db 100%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 15px 35px rgba(123, 104, 238, 0.4),
+    0 5px 15px rgba(123, 104, 238, 0.2);
 }
 
 .ai-btn:before {
-  content: "✨";
+  content: "🤖";
   font-size: 1.2rem;
+  margin-right: 0.5rem;
 }
 
 /* Tweet Button */
 .tweet-btn {
   flex: 1;
-  background: linear-gradient(45deg, #1da1f2, #1991db);
+  background: linear-gradient(135deg, #1da1f2 0%, #1991db 50%, #0d8bd9 100%);
   color: white;
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -267,9 +378,11 @@ button {
 }
 
 .tweet-btn:hover:not(:disabled) {
-  background: linear-gradient(45deg, #1991db, #1782c2);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(29, 161, 242, 0.3);
+  background: linear-gradient(135deg, #1991db 0%, #1782c2 50%, #0d7bc4 100%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 15px 35px rgba(29, 161, 242, 0.4),
+    0 5px 15px rgba(29, 161, 242, 0.2);
 }
 
 .tweet-btn:before {
@@ -278,11 +391,12 @@ button {
 }
 
 .tweet-btn:disabled {
-  background: #ccd6dd;
+  background: linear-gradient(135deg, #ccd6dd, #b8c5d1);
   color: #657786;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+  opacity: 0.6;
 }
 
 /* Logout Button */
@@ -694,70 +808,109 @@ button:focus-visible {
 
 /* Image Upload Styles */
 .image-upload-section {
-  margin: 1.5rem 0;
+  margin: 2rem 0;
+  position: relative;
 }
 
 .image-upload-btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  border-radius: 15px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 600;
   border: none;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 
+    0 8px 25px rgba(102, 126, 234, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   margin-bottom: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.image-upload-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.image-upload-btn:hover::before {
+  left: 100%;
 }
 
 .image-upload-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 15px 35px rgba(102, 126, 234, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
 }
 
 .image-preview {
   position: relative;
   display: inline-block;
-  margin-top: 1rem;
-  border-radius: 12px;
+  margin-top: 1.5rem;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  border: 2px solid #e1e8ed;
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.2),
+    0 5px 15px rgba(0, 0, 0, 0.1);
+  border: 3px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.image-preview:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.3),
+    0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
 .image-preview img {
-  max-width: 300px;
-  max-height: 200px;
+  max-width: 350px;
+  max-height: 250px;
   object-fit: cover;
   display: block;
+  border-radius: 17px;
 }
 
 .remove-image-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(255, 255, 255, 0.9);
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.95);
   border: none;
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 35px;
+  height: 35px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: bold;
   color: #657786;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
 }
 
 .remove-image-btn:hover {
   background: #ff6b6b;
   color: white;
-  transform: scale(1.1);
+  transform: scale(1.15);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
 }
 
 /* AI Prompt Input Styles */

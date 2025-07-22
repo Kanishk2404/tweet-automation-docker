@@ -110,11 +110,11 @@ function App() {
 
           {/* AI Prompt Section */}
           <div className="ai-prompt-section">
-            <input
+            <input 
               type="text"
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="Enter topic for AI (optional) - e.g. 'productivity tips', 'funny tech jokes'"
+              placeholder="Enter topic for AI generation (optional)"
               className="ai-prompt-input"
             />
           </div>
@@ -126,25 +126,18 @@ function App() {
                 headers: {
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                  topic: aiPrompt.trim() || null // Send the prompt, or null for random
-                })
+                body: JSON.stringify({ topic: aiPrompt })
               })
               .then(response => response.json())
               .then(data => {
                 if (data.success) {
                   setTweetContent(data.content); // Set the generated tweet content
-                  setAiPrompt(''); // Clear the prompt after use
                 } else {
                   alert('Error generating tweet: ' + data.message);
                 }
               })
-              .catch(error => {
-                console.error('Error generating tweet:', error);
-                alert('Connection error! Make sure the backend server is running.');
-              });
             }}>
-              {aiPrompt.trim() ? `Generate: "${aiPrompt}"` : 'Generate Random Tweet'}
+              {aiPrompt ? `Generate AI Content about "${aiPrompt}"` : 'Generate AI Content'}
             </button>
 
             <button 
