@@ -451,6 +451,140 @@ git push -u origin main
    - Ensure uploads/ directory exists
    - Check file permissions on server
 
+---
+
+# Tweet Automator: AI Tweet & Image Posting - Documentation
+
+## Overview
+This project allows you to generate tweets and images using OpenAI or Gemini AI, and post them directly to Twitter (X) with your own API keys. It supports both text and image generation, per-user API keys, and robust error handling. The app is designed for local use and can be dockerized for easy deployment.
+
+---
+
+## Key Features
+- **Per-request API keys:** All AI and Twitter keys are provided by the user, not stored in .env.
+- **AI tweet generation:** Uses OpenAI (GPT) or Gemini for tweet text.
+- **AI image generation:** Uses OpenAI (DALL·E, returns URL) or Gemini (returns base64, if supported).
+- **Image upload:** Users can upload their own images or use AI-generated ones.
+- **Image posting reliability:** If the AI image is a URL, the backend fetches and uploads it to Twitter.
+- **Persistent API keys:** Keys are stored in localStorage for autofill convenience.
+- **Frontend and backend separation:** React frontend, Node.js/Express backend.
+
+---
+
+## How It Works
+
+### 1. Frontend (React)
+- **API Key Inputs:**
+  - All API keys are entered by the user and stored in localStorage for convenience.
+  - Password fields are used for security (shows dots).
+- **Tweet & Image Generation:**
+  - User enters tweet content and (optionally) a custom image prompt.
+  - Click 'Generate AI image' to call `/generate-ai-image` on the backend.
+  - If the backend returns a base64 image (Gemini), it is converted to a File and set as `selectedImage`.
+  - If the backend returns a URL (OpenAI), the URL is stored as `aiImageUrl`.
+- **Posting a Tweet:**
+  - When posting, if `selectedImage` is set, it is uploaded as a file.
+  - If `aiImageUrl` is set (OpenAI), it is sent to the backend as `imageUrl`.
+  - The backend handles all image upload logic.
+- **Button State:**
+  - The 'Post Tweet' button is disabled while the AI image is being fetched/converted, or if the tweet content is invalid.
+
+#### Key Frontend Code
+```jsx
+// State for AI image URL
+const [aiImageUrl, setAiImageUrl] = useState('');
+
+// AI image generation handler
+const handleGenerateAIImage = async () => {
+  // ...existing code...
+  if (data.success && data.image) {
+    setImagePreview(data.image);
+    if (data.image.startsWith('data:image/')) {
+      // Gemini: base64 image
+      const file = dataURLtoFile(data.image, 'ai-image.png');
+      setSelectedImage(file);
+      setAiImageUrl('');
+    } else if (data.image.startsWith('http')) {
+      // OpenAI: image URL
+      setSelectedImage(null);
+      setAiImageUrl(data.image);
+    } else {
+      setSelectedImage(null);
+      setAiImageUrl('');
+    }
+  }
+  // ...existing code...
+}
+
+// Posting a tweet
+const formData = new FormData();
+// ...append all keys and tweet content...
+if (selectedImage) {
+  formData.append('image', selectedImage);
+}
+if (!selectedImage && aiImageUrl) {
+  formData.append('imageUrl', aiImageUrl);
+}
+fetch(`${BACKEND_URL}/post-tweet`, { method: 'POST', body: formData })
+```
+
+---
+
+### 2. Backend (Node.js/Express)
+- **/generate-ai-image endpoint:**
+  - Accepts a prompt and API keys.
+  - Calls Gemini or OpenAI for image generation.
+  - Returns a base64 image (Gemini) or a URL (OpenAI).
+- **/post-tweet endpoint:**
+  - Accepts all Twitter keys, tweet content, and either an uploaded image file or an `imageUrl`.
+  - If `imageUrl` is provided, fetches the image server-side (using `node-fetch`), saves it temporarily, and uploads it to Twitter.
+  - If a file is uploaded, uploads it to Twitter as before.
+  - Cleans up temp files after upload.
+
+#### Key Backend Code
+```js
+// At the top
+const fetch = require('node-fetch');
+
+// In /post-tweet endpoint
+if (req.file) {
+  // ...upload file to Twitter...
+} else if (imageUrl) {
+  // Fetch image from URL and upload
+  const response = await fetch(imageUrl);
+  const buffer = await response.buffer();
+  // Save to temp file, upload, then delete
+}
+```
+
+---
+
+## Error Handling & UX
+- All errors (AI, Twitter, network) are caught and shown to the user.
+- The UI disables actions while waiting for AI or image upload.
+- The backend cleans up temp files and handles all edge cases.
+
+---
+
+## How to Extend
+- Add more AI providers or image styles by updating the prompt logic.
+- Add history or analytics by saving tweets/images in localStorage or a backend DB.
+- Dockerize for easy deployment.
+
+---
+
+## Troubleshooting
+- If AI images are not posting, ensure `node-fetch` is installed in the backend.
+- Check backend logs for errors with image upload or Twitter API.
+- Make sure all API keys are valid and have the right permissions.
+
+---
+
+## Summary
+This setup ensures you can reliably generate and post AI-powered tweets and images to Twitter, with robust error handling and a user-friendly local experience. All logic is documented and modular for easy updates.
+
+---
+
 ## 📊 Features Summary
 
 ### ✅ Completed Features

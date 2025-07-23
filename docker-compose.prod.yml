@@ -1,0 +1,25 @@
+services:
+  backend:
+    build: ./backend
+    image: kanishk24-4/tweet-backend:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./backend/uploads:/app/uploads
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: kanishk24-4/tweet-frontend:latest
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+# Usage:
+# 1. Run: docker compose -f docker-compose.prod.yml up --build
+# 2. Access frontend at http://localhost:3000
+# 3. Enter your API keys on the web page after the app loads
