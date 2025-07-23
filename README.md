@@ -52,12 +52,6 @@ This is a web application that helps automate tweeting using AI for content and 
 - For any issues, check the logs with `docker compose logs backend` or `docker compose logs frontend`.
 
 ---
-
-## For Users
-- Want to use this project? Just copy `docker-compose.prod.yml` to your machine and follow the steps above—no coding required!
-- Simply enter your API keys in the web UI and start automating your tweets.
-- If you encounter any issues, check the logs or open an issue on GitHub.
-
 ## For Contributors
 - Want to contribute? Feel free to fork this repository and submit a pull request!
 - Contributions are welcome—add features, fix bugs, or improve documentation:
