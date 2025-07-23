@@ -86,6 +86,22 @@
   - Expand to other social media platforms.
   - Add OAuth for more secure Twitter authentication.
 
+## Hosting on Railway: Experience & Lessons
+- **Initial Deployment:** Attempted to host the project on Railway for cloud deployment and public access.
+- **Common Issues Faced:**
+  - Environment variables not being picked up correctly in the Railway build environment, causing backend/frontend to fail connecting to APIs.
+  - Networking issues between backend and frontend services due to Railway's service discovery and port mapping.
+  - Build failures related to missing dependencies or incorrect Dockerfile paths.
+  - Exposed ports and service URLs needed to be explicitly set in Railway's dashboard for both backend and frontend.
+- **How We Solved/What We Learned:**
+  - Carefully reviewed Railway's build logs and settings to ensure all required environment variables were set in the dashboard.
+  - Adjusted Dockerfiles and Docker Compose files to be compatible with Railway's build and runtime environment.
+  - Used Railway's documentation and community forums to troubleshoot service linking and port exposure.
+  - Realized that for multi-service (full-stack) apps, Railway may require extra configuration or be less straightforward than Docker Compose locally.
+- **Outcome:**
+  - Gained valuable experience in cloud deployment and debugging platform-specific issues.
+  - Ultimately, Docker Compose remained the most reliable and portable solution for this project, but Railway hosting knowledge is now part of the team's toolkit.
+
 ---
 
 Feel free to use or adapt this summary for documentation, retrospectives, or sharing your journey on LinkedIn or other platforms!
