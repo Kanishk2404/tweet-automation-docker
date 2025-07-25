@@ -1,24 +1,19 @@
 services:
   backend:
-    # build: ./backend
     image: kanishk2404/tweet-backend:latest
     ports:
       - "5000:5000"
     environment:
       - NODE_ENV=production
-    # Previous bind mounts for reference:
-    #   - ./backend/uploads:/app/uploads
-    #   - ./backend/database.sqlite:/app/database.sqlite
+    # Persistent storage for uploads and database:
+    # uploads_data: stores all uploaded images
+    # db_data: stores the SQLite database in /app/db/database.sqlite
     volumes:
       - uploads_data:/app/uploads
-      - db_data:/app/database.sqlite
+      - db_data:/app/db
     restart: unless-stopped
 
   frontend:
-    # build:
-    #   context: ./frontend
-    #   args:
-    #     - VITE_API_URL=http://backend:5000
     image: kanishk2404/tweet-frontend:latest
     ports:
       - "3000:80"
@@ -31,6 +26,6 @@ volumes:
   db_data:
 
 # Usage:
-# 1. Run: docker compose -f docker-compose.prod.yml up --build
+# 1. Run: docker compose -f docker-compose.prod.yml up -d
 # 2. Access frontend at http://localhost:3000
 # 3. Enter your API keys on the web page after the app loads

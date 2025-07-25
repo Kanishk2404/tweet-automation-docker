@@ -19,7 +19,9 @@
     "multer": "^2.0.2",
     "node-fetch": "^2.7.0",
     "openai": "^5.10.1",
-    "twitter-api-v2": "^1.18.2"
+    "twitter-api-v2": "^1.18.2",
+    "sequelize": "^6.37.1",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

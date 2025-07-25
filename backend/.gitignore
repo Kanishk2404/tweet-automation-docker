@@ -19,3 +19,4 @@ coverage/
 # Temporary folders
 tmp/
 temp/
+DOCKER_ISSUES_AND_SOLUTIONS.md

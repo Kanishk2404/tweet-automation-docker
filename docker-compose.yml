@@ -14,7 +14,7 @@ services:
     #   - ./backend/database.sqlite:/app/database.sqlite
     volumes:
       - uploads_data:/app/uploads
-      - db_data:/app/database.sqlite
+      - db_data:/app/db
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/"]
@@ -26,7 +26,7 @@ services:
     build:
       context: ./frontend
       args:
-        - VITE_API_URL=http://backend:5000
+        - VITE_API_URL=http://localhost:5000
     image: kanishk2404/tweet-frontend:latest
     ports:
       - "3000:80"
