@@ -10,6 +10,15 @@ const { TwitterApi } = require('twitter-api-v2');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const OpenAI = require('openai');
 const fetch = require('node-fetch');
+const sequelize = require('./db');
+const TweetModel = require('./models/tweet');       
+
+// Initialize Sequelize and Tweet model
+const Tweet = TweetModel(sequelize);
+
+sequelize.sync().then(() => {
+    console.log('Database synced!');
+});
 
 const app = express();
 app.use(cors());
@@ -446,6 +455,14 @@ app.post('/post-tweet', upload.single('image'), async (req, res) => {
         const tweet = await twitterClient.v2.tweet(tweetPayload);
         
         console.log('Tweet posted successfully:', tweet.data.id);
+
+        // Save tweet to the database
+        await Tweet.create({
+            userName: req.body.userName || "Unknown",
+            content: content,
+            imageUrl: imageUrl || null,
+            twitterId: tweet && tweet.data && tweet.data.id ? tweet.data.id : null,
+        })
         
         res.json({
             success: true,
@@ -468,6 +485,67 @@ app.post('/post-tweet', upload.single('image'), async (req, res) => {
             message: "Failed to post tweet",
             error: error.message
         });
+    }
+});
+
+
+// This endpoint handles GET requests to /tweet-history
+app.get('/tweet-history', async (req, res) => {
+    try {
+        const tweets = await Tweet.findAll({
+            order: [['createdAt', 'DESC']]
+        });
+        res.json({
+            success: true,
+            tweets: tweets
+        });
+    } catch (error) {
+        console.error('Error fetching tweet history:', error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch tweet history",
+            error: error.message
+        });
+    }
+});
+
+// This endpoint handles DELETE requests to /tweet-history/:id
+app.delete('/tweet-history/:id', express.json(), async (req, res) => {
+    try {
+        const tweetId = req.params.id;
+        const tweet = await Tweet.findByPk(tweetId);
+        if (!tweet) {
+            return res.status(404).json({ success: false, message: "Tweet not found" });
+        }
+
+        // Use credentials from request body if provided
+        const { twitterApiKey, twitterApiSecret, twitterAccessToken, twitterAccessSecret } = req.body || {};
+        let deleteClient = null;
+        if (twitterApiKey && twitterApiSecret && twitterAccessToken && twitterAccessSecret) {
+            const { TwitterApi } = require('twitter-api-v2');
+            deleteClient = new TwitterApi({
+                appKey: twitterApiKey,
+                appSecret: twitterApiSecret,
+                accessToken: twitterAccessToken,
+                accessSecret: twitterAccessSecret,
+            });
+        } else if (global.twitterClient) {
+            deleteClient = global.twitterClient;
+        }
+
+        // Delete from Twitter if twitterId exists and we have a client
+        if (tweet.twitterId && deleteClient) {
+            try {
+                await deleteClient.v2.deleteTweet(tweet.twitterId);
+            } catch (err) {
+                console.error("Error deleting from Twitter:", err);
+                // Optionally, you can return an error here or just log it
+            }
+        }
+        await tweet.destroy();
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to delete tweet", error: error.message });
     }
 });
 

@@ -62,6 +62,22 @@ This is a web application that helps automate tweeting using AI for content and 
 - Please follow best practices for code quality and documentation.
 - For major changes, open an issue first to discuss what you would like to change.
 
+## Troubleshooting: Frontend-Backend Container Communication
+- During development, a major challenge was getting the frontend container to talk to the backend container reliably.
+- **Common Issues Faced:**
+  - Frontend could not reach backend when using `localhost` or `127.0.0.1` inside Docker.
+  - Environment variables (like VITE_API_URL) were not set or picked up correctly at build time.
+  - Docker Compose service names were not used, causing network errors.
+- **Solutions:**
+  - Changed backend to listen on `0.0.0.0` instead of `localhost` for Docker compatibility.
+  - Set `VITE_API_URL` to `http://backend:5000` in the frontend's build environment and .env file.
+  - Ensured .env is present before building the frontend image.
+  - Used Docker Compose service names (`backend`) for internal networking between containers.
+- **Lesson Learned:**
+  - Always use Docker Compose service names for container-to-container communication.
+  - Ensure environment variables are available at build time, not just runtime.
+  - Test networking on multiple platforms to catch environment-specific issues early.
+
 ---
 
 Enjoy automating your tweets with AI!
