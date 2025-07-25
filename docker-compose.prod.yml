@@ -6,18 +6,29 @@ services:
       - "5000:5000"
     environment:
       - NODE_ENV=production
+    # Previous bind mounts for reference:
+    #   - ./backend/uploads:/app/uploads
+    #   - ./backend/database.sqlite:/app/database.sqlite
     volumes:
-      - ./backend/uploads:/app/uploads
+      - uploads_data:/app/uploads
+      - db_data:/app/database.sqlite
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=http://backend:5000
     image: kanishk24-4/tweet-frontend:latest
     ports:
       - "3000:80"
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  uploads_data:
+  db_data:
 
 # Usage:
 # 1. Run: docker compose -f docker-compose.prod.yml up --build
