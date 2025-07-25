@@ -1,3 +1,4 @@
+
 version: '3.8'
 
 services:
@@ -16,7 +17,6 @@ services:
       - db_data:/app/database.sqlite
     restart: unless-stopped
     healthcheck:
-      # This command now uses 'curl', which we will add in the backend Dockerfile
       test: ["CMD", "curl", "-f", "http://localhost:5000/"]
       interval: 10s
       timeout: 5s
@@ -26,7 +26,6 @@ services:
     build:
       context: ./frontend
       args:
-        # CRITICAL CHANGE: Use the backend service name for Docker networking
         - VITE_API_URL=http://backend:5000
     image: kanishk2404/tweet-frontend:latest
     ports:

@@ -1,7 +1,7 @@
 services:
   backend:
-    build: ./backend
-    image: kanishk24-4/tweet-backend:latest
+    # build: ./backend
+    image: kanishk2404/tweet-backend:latest
     ports:
       - "5000:5000"
     environment:
@@ -15,11 +15,11 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        - VITE_API_URL=http://backend:5000
-    image: kanishk24-4/tweet-frontend:latest
+    # build:
+    #   context: ./frontend
+    #   args:
+    #     - VITE_API_URL=http://backend:5000
+    image: kanishk2404/tweet-frontend:latest
     ports:
       - "3000:80"
     depends_on:

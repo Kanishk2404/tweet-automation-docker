@@ -6,3 +6,4 @@ uploads
 Dockerfile
 .dockerignore
 README.md
+database.sqlite
