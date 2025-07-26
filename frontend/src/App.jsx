@@ -7,9 +7,10 @@ import TweetHistory from './components/TweetHistory';
 const BACKEND_URL = import.meta.env.VITE_API_URL;
 
 function App() {
-  // Built-in keys (replace with your actual keys)
-  const DEFAULT_PERPLEXITY_KEY = 'YOUR_PERPLEXITY_KEY_HERE';
-  const DEFAULT_GEMINI_KEY = 'YOUR_GEMINI_KEY_HERE';
+  // Built-in keys from Vite environment variables
+  const DEFAULT_PERPLEXITY_KEY = import.meta.env.VITE_PERPLEXITY_API_KEY || '';
+  const DEFAULT_GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+  const DEFAULT_OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
   // Ref for TweetHistory
   const tweetHistoryRef = useRef(null);
   // Load from localStorage if available
@@ -138,9 +139,9 @@ function App() {
             background: '#f7f8fa',
             borderRadius: 10,
             boxShadow: '0 1px 6px #0001',
-            padding: '24px 20px',
+            padding: '24px 32px',
             marginBottom: '2rem',
-            maxWidth: 420,
+            maxWidth: 600,
             marginLeft: 'auto',
             marginRight: 'auto',
             display: 'flex',
@@ -178,13 +179,13 @@ function App() {
               <div style={{marginBottom: '0.5rem'}}>
                 <label style={{fontWeight: 600, marginRight: 8}}>AI Providers:</label>
                 <span title="Use Perplexity AI for tweet generation" style={{marginRight: 12}}>
-                  <input type="checkbox" checked={usePerplexity} onChange={e => setUsePerplexity(e.target.checked)} /> <span role="img" aria-label="perplexity">🧠</span> Perplexity
+                  <input type="checkbox" checked={usePerplexity} onChange={e => setUsePerplexity(e.target.checked)} disabled={!useOwnKeys} /> <span role="img" aria-label="perplexity">🧠</span> Perplexity
                 </span>
                 <span title="Use Gemini AI for tweet generation" style={{marginRight: 12}}>
-                  <input type="checkbox" checked={useGemini} onChange={e => setUseGemini(e.target.checked)} /> <span role="img" aria-label="gemini">🌈</span> Gemini
+                  <input type="checkbox" checked={useGemini} onChange={e => setUseGemini(e.target.checked)} disabled={!useOwnKeys} /> <span role="img" aria-label="gemini">🌈</span> Gemini
                 </span>
                 <span title="Use OpenAI for tweet generation">
-                  <input type="checkbox" checked={useOpenAI} onChange={e => setUseOpenAI(e.target.checked)} /> <span role="img" aria-label="openai">🤖</span> OpenAI
+                  <input type="checkbox" checked={useOpenAI} onChange={e => setUseOpenAI(e.target.checked)} disabled={!useOwnKeys} /> <span role="img" aria-label="openai">🤖</span> OpenAI
                 </span>
               </div>
               {usePerplexity && (
@@ -204,6 +205,7 @@ function App() {
                     autoComplete="off"
                     name="perplexity-api-key"
                     style={{flex: 1}}
+                    disabled={!useOwnKeys}
                   />
                   <span title="Get your Perplexity API key from perplexity.ai" style={{color: '#888', fontSize: 14}}>?</span>
                 </div>
@@ -225,6 +227,7 @@ function App() {
                     autoComplete="off"
                     name="gemini-api-key"
                     style={{flex: 1}}
+                    disabled={!useOwnKeys}
                   />
                   <span title="Get your Gemini API key from makersuite.google.com" style={{color: '#888', fontSize: 14}}>?</span>
                 </div>
@@ -246,83 +249,96 @@ function App() {
                     autoComplete="off"
                     name="openai-api-key"
                     style={{flex: 1}}
+                    disabled={!useOwnKeys}
                   />
                   <span title="Get your OpenAI API key from platform.openai.com" style={{color: '#888', fontSize: 14}}>?</span>
                 </div>
               )}
             </>
             <div style={{marginTop: '1rem', marginBottom: '0.5rem', fontWeight: 600, fontSize: 16}}>Twitter Credentials</div>
-            <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-              <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterApiKey}
-                onChange={e => setTwitterApiKey(e.target.value)}
-                onFocus={e => {
-                  if (!twitterApiKey && localStorage.getItem('twitterApiKey')) {
-                    setTwitterApiKey(localStorage.getItem('twitterApiKey'));
-                  }
-                }}
-                placeholder="Twitter API Key"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-api-key"
-                style={{flex: 1}}
-              />
-            </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-              <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterApiSecret}
-                onChange={e => setTwitterApiSecret(e.target.value)}
-                onFocus={e => {
-                  if (!twitterApiSecret && localStorage.getItem('twitterApiSecret')) {
-                    setTwitterApiSecret(localStorage.getItem('twitterApiSecret'));
-                  }
-                }}
-                placeholder="Twitter API Secret"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-api-secret"
-                style={{flex: 1}}
-              />
-            </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-              <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterAccessToken}
-                onChange={e => setTwitterAccessToken(e.target.value)}
-                onFocus={e => {
-                  if (!twitterAccessToken && localStorage.getItem('twitterAccessToken')) {
-                    setTwitterAccessToken(localStorage.getItem('twitterAccessToken'));
-                  }
-                }}
-                placeholder="Twitter Access Token"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-access-token"
-                style={{flex: 1}}
-              />
-            </div>
-            <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-              <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterAccessSecret}
-                onChange={e => setTwitterAccessSecret(e.target.value)}
-                onFocus={e => {
-                  if (!twitterAccessSecret && localStorage.getItem('twitterAccessSecret')) {
-                    setTwitterAccessSecret(localStorage.getItem('twitterAccessSecret'));
-                  }
-                }}
-                placeholder="Twitter Access Secret"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-access-secret"
-                style={{flex: 1}}
-              />
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '24px',
+              alignItems: 'stretch',
+              marginBottom: '1rem',
+              width: '100%',
+              maxWidth: '700px',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}>
+              <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
+                <input
+                  type="password"
+                  value={twitterApiKey}
+                  onChange={e => setTwitterApiKey(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterApiKey && localStorage.getItem('twitterApiKey')) {
+                      setTwitterApiKey(localStorage.getItem('twitterApiKey'));
+                    }
+                  }}
+                  placeholder="Twitter API Key"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-api-key"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
+              </div>
+              <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
+                <input
+                  type="password"
+                  value={twitterApiSecret}
+                  onChange={e => setTwitterApiSecret(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterApiSecret && localStorage.getItem('twitterApiSecret')) {
+                      setTwitterApiSecret(localStorage.getItem('twitterApiSecret'));
+                    }
+                  }}
+                  placeholder="Twitter API Secret"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-api-secret"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
+              </div>
+              <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
+                <input
+                  type="password"
+                  value={twitterAccessToken}
+                  onChange={e => setTwitterAccessToken(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterAccessToken && localStorage.getItem('twitterAccessToken')) {
+                      setTwitterAccessToken(localStorage.getItem('twitterAccessToken'));
+                    }
+                  }}
+                  placeholder="Twitter Access Token"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-access-token"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
+              </div>
+              <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
+                <input
+                  type="password"
+                  value={twitterAccessSecret}
+                  onChange={e => setTwitterAccessSecret(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterAccessSecret && localStorage.getItem('twitterAccessSecret')) {
+                      setTwitterAccessSecret(localStorage.getItem('twitterAccessSecret'));
+                    }
+                  }}
+                  placeholder="Twitter Access Secret"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-access-secret"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
+              </div>
             </div>
           </div>
           <button
