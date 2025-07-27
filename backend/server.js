@@ -119,7 +119,7 @@ app.post('/auth', (req, res) => {
 
 // Generate tweet endpoint
 app.post('/generate-tweet', async (req, res) => {
-    // Log received API keys for debugging
+    // Log received API keys and provider for debugging
     console.log('Received API keys:', {
         perplexityApiKey: !!req.body.perplexityApiKey,
         geminiApiKey: !!req.body.geminiApiKey,
@@ -128,102 +128,112 @@ app.post('/generate-tweet', async (req, res) => {
     const {
         userName,
         openaiApiKey,
+        perplexityApiKey,
+        geminiApiKey,
         twitterApiKey,
         twitterApiSecret,
         twitterAccessToken,
         twitterAccessSecret,
-        aiPrompt
+        aiPrompt,
+        useOwnKeys // true if user provides their own keys, false for pre-existing
     } = req.body;
 
-    // Use provided Perplexity key or fallback to env, only if valid
-    const perplexityApiKey = isValidKey(req.body.perplexityApiKey)
-        ? req.body.perplexityApiKey
-        : isValidKey(process.env.PERPLEXITY_API_KEY)
-            ? process.env.PERPLEXITY_API_KEY
-            : null;
-
-    // Use provided Gemini key or fallback to env, only if valid
-    const geminiApiKey = isValidKey(req.body.geminiApiKey)
-        ? req.body.geminiApiKey
-        : isValidKey(process.env.GEMINI_API_KEY)
-            ? process.env.GEMINI_API_KEY
-            : null;
-
-    // ...existing code...
+    // Strictly use only keys from the selected source
+    let validPerplexityKey, validGeminiKey, validOpenaiKey, providerOrder;
+    if (useOwnKeys) {
+        // Only use keys provided by the user, never fallback to .env
+        validPerplexityKey = isValidKey(perplexityApiKey) ? perplexityApiKey : null;
+        validGeminiKey = isValidKey(geminiApiKey) ? geminiApiKey : null;
+        validOpenaiKey = isValidKey(openaiApiKey) ? openaiApiKey : null;
+        providerOrder = [];
+        // Only add provider if key is present AND provider is selected by frontend
+        if (req.body.aiProviders && Array.isArray(req.body.aiProviders)) {
+            if (validPerplexityKey && req.body.aiProviders.includes('perplexity')) providerOrder.push('perplexity');
+            if (validOpenaiKey && req.body.aiProviders.includes('openai')) providerOrder.push('openai');
+            if (validGeminiKey && req.body.aiProviders.includes('gemini')) providerOrder.push('gemini');
+        } else {
+            // fallback: add any valid key
+            if (validPerplexityKey) providerOrder.push('perplexity');
+            if (validOpenaiKey) providerOrder.push('openai');
+            if (validGeminiKey) providerOrder.push('gemini');
+        }
+    } else {
+        // Only use keys from .env, never use user-provided keys
+        validPerplexityKey = isValidKey(process.env.PERPLEXITY_API_KEY) ? process.env.PERPLEXITY_API_KEY : null;
+        validGeminiKey = isValidKey(process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY : null;
+        validOpenaiKey = isValidKey(process.env.OPENAI_API_KEY) ? process.env.OPENAI_API_KEY : null;
+        providerOrder = [];
+        if (validPerplexityKey) providerOrder.push('perplexity');
+        if (validOpenaiKey) providerOrder.push('openai');
+        if (validGeminiKey) providerOrder.push('gemini');
+    }
+    // Extra debug log
+    console.log('Provider order:', providerOrder);
+    console.log('Valid keys:', { validPerplexityKey, validGeminiKey, validOpenaiKey });
 
     // Always generate a tweet specifically about what the user asked
     const prompt = aiPrompt && aiPrompt.trim()
         ? `Generate an engaging, creative tweet specifically about: ${aiPrompt}. Include relevant emojis if appropriate.`
         : `Generate an engaging, creative tweet about any topic. Include relevant emojis if appropriate.`;
 
-    // Unified AI provider logic
     const axios = require('axios');
     let generatedTweet = '';
     try {
-        // 1. Try Perplexity
-        if (perplexityApiKey) {
-            console.log('Using Perplexity API key:', perplexityApiKey);
-            try {
-                const resp = await axios.post('https://api.perplexity.ai/chat/completions', {
-                    model: 'sonar-pro',
-                    messages: [{ role: 'user', content: prompt }],
-                }, {
-                    headers: { 'Authorization': `Bearer ${perplexityApiKey}` }
-                });
-                generatedTweet = resp.data.choices[0].message.content.trim();
-                console.log('✅ Generated tweet with Perplexity:', generatedTweet);
-            } catch (err) {
-                if (err.response) {
-                    console.error('Perplexity error:', {
-                        status: err.response.status,
-                        data: err.response.data,
-                        headers: err.response.headers
+        for (const provider of providerOrder) {
+            if (provider === 'perplexity' && validPerplexityKey && !generatedTweet) {
+                console.log('Trying Perplexity API key:', validPerplexityKey);
+                try {
+                    const resp = await axios.post('https://api.perplexity.ai/chat/completions', {
+                        model: 'sonar-pro',
+                        messages: [{ role: 'user', content: prompt }],
+                    }, {
+                        headers: { 'Authorization': `Bearer ${validPerplexityKey}` }
                     });
-                } else {
-                    console.error('Perplexity error:', err.message);
+                    generatedTweet = resp.data.choices[0].message.content.trim();
+                    console.log('✅ Generated tweet with Perplexity:', generatedTweet);
+                } catch (err) {
+                    console.error('Perplexity error:', err?.response?.data || err?.message || err);
                 }
             }
-        }
-        // 2. Try Gemini if Perplexity failed or not provided
-        if (!generatedTweet && geminiApiKey) {
-            try {
-                const { GoogleGenerativeAI } = require('@google/generative-ai');
-                const geminiClient = new GoogleGenerativeAI(geminiApiKey);
-                const geminiModel = geminiClient.getGenerativeModel({ model: "gemini-1.5-flash" });
-                const result = await geminiModel.generateContent(
-                    `You are a social media expert creating engaging, concise, and shareable tweets. Keep each tweet under 280 characters, add personality, and encourage engagement.\n\n${prompt}`
-                );
-                const response = result.response;
-                generatedTweet = response.text().trim();
-                console.log('✅ Generated tweet with Gemini:', generatedTweet);
-            } catch (err) {
-                console.error('Gemini error:', err.message);
+            if (provider === 'openai' && validOpenaiKey && !generatedTweet) {
+                try {
+                    const OpenAI = require('openai');
+                    const openaiClient = new OpenAI({ apiKey: validOpenaiKey });
+                    const completion = await openaiClient.chat.completions.create({
+                        model: "gpt-3.5-turbo",
+                        messages: [
+                            {
+                                role: "system",
+                                content: "You are a social media expert creating engaging, concise, and shareable tweets. Keep each tweet under 280 characters, add personality, and encourage engagement.\n\n"
+                            },
+                            {
+                                role: "user",
+                                content: prompt
+                            }
+                        ],
+                        max_tokens: 100,
+                        temperature: 0.8,
+                    });
+                    generatedTweet = completion.choices[0].message.content.trim();
+                    console.log('✅ Generated tweet with OpenAI:', generatedTweet);
+                } catch (err) {
+                    console.error('OpenAI error:', err?.response?.data || err?.message || err);
+                }
             }
-        }
-        // 3. Try OpenAI if Perplexity and Gemini failed or not provided
-        if (!generatedTweet && openaiApiKey) {
-            try {
-                const OpenAI = require('openai');
-                const openaiClient = new OpenAI({ apiKey: openaiApiKey });
-                const completion = await openaiClient.chat.completions.create({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        {
-                            role: "system",
-                            content: "You are a social media expert creating engaging, concise, and shareable tweets. Keep each tweet under 280 characters, add personality, and encourage engagement.\n\n"
-                        },
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ],
-                    max_tokens: 100,
-                    temperature: 0.8,
-                });
-                generatedTweet = completion.choices[0].message.content.trim();
-                console.log('✅ Generated tweet with OpenAI:', generatedTweet);
-            } catch (err) {
-                console.error('OpenAI error:', err.message);
+            if (provider === 'gemini' && validGeminiKey && !generatedTweet) {
+                try {
+                    const { GoogleGenerativeAI } = require('@google/generative-ai');
+                    const geminiClient = new GoogleGenerativeAI(validGeminiKey);
+                    const geminiModel = geminiClient.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const result = await geminiModel.generateContent(
+                        `You are a social media expert creating engaging, concise, and shareable tweets. Keep each tweet under 280 characters, add personality, and encourage engagement.\n\n${prompt}`
+                    );
+                    const response = result.response;
+                    generatedTweet = response.text().trim();
+                    console.log('✅ Generated tweet with Gemini:', generatedTweet);
+                } catch (err) {
+                    console.error('Gemini error:', err?.response?.data || err?.message || err);
+                }
             }
         }
         if (!generatedTweet) {
@@ -268,19 +278,15 @@ app.post('/generate-ai-image', async (req, res) => {
         enhancedPrompt = 'Create a high-quality, visually engaging image for social media.';
     }
     
-    // Use provided Perplexity key or fallback to env, only if valid
-    const perplexityApiKey = isValidKey(req.body.perplexityApiKey)
-        ? req.body.perplexityApiKey
-        : isValidKey(process.env.PERPLEXITY_API_KEY)
-            ? process.env.PERPLEXITY_API_KEY
-            : null;
-
-    // Use provided Gemini key or fallback to env, only if valid
-    const geminiApiKey = isValidKey(req.body.geminiApiKey)
-        ? req.body.geminiApiKey
-        : isValidKey(process.env.GEMINI_API_KEY)
-            ? process.env.GEMINI_API_KEY
-            : null;
+    // Use only user-provided keys if present, else fallback to .env
+    let perplexityApiKey, geminiApiKey;
+    if (req.body.useOwnKeys) {
+        perplexityApiKey = isValidKey(req.body.perplexityApiKey) ? req.body.perplexityApiKey : null;
+        geminiApiKey = isValidKey(req.body.geminiApiKey) ? req.body.geminiApiKey : null;
+    } else {
+        perplexityApiKey = isValidKey(process.env.PERPLEXITY_API_KEY) ? process.env.PERPLEXITY_API_KEY : null;
+        geminiApiKey = isValidKey(process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY : null;
+    }
 
     // Try Gemini first if key is provided
     if (geminiApiKey) {

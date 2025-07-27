@@ -1,5 +1,3 @@
-
-
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import TweetHistory from './components/TweetHistory';
@@ -179,13 +177,31 @@ function App() {
               <div style={{marginBottom: '0.5rem'}}>
                 <label style={{fontWeight: 600, marginRight: 8}}>AI Providers:</label>
                 <span title="Use Perplexity AI for tweet generation" style={{marginRight: 12}}>
-                  <input type="checkbox" checked={usePerplexity} onChange={e => setUsePerplexity(e.target.checked)} disabled={!useOwnKeys} /> <span role="img" aria-label="perplexity">🧠</span> Perplexity
+                  <input type="checkbox" checked={usePerplexity} onChange={e => {
+                    setUsePerplexity(e.target.checked);
+                    if (!e.target.checked) {
+                      setPerplexityApiKey('');
+                      localStorage.removeItem('perplexityApiKey');
+                    }
+                  }} disabled={!useOwnKeys} /> <span role="img" aria-label="perplexity">🧠</span> Perplexity
                 </span>
                 <span title="Use Gemini AI for tweet generation" style={{marginRight: 12}}>
-                  <input type="checkbox" checked={useGemini} onChange={e => setUseGemini(e.target.checked)} disabled={!useOwnKeys} /> <span role="img" aria-label="gemini">🌈</span> Gemini
+                  <input type="checkbox" checked={useGemini} onChange={e => {
+                    setUseGemini(e.target.checked);
+                    if (!e.target.checked) {
+                      setGeminiApiKey('');
+                      localStorage.removeItem('geminiApiKey');
+                    }
+                  }} disabled={!useOwnKeys} /> <span role="img" aria-label="gemini">🌈</span> Gemini
                 </span>
                 <span title="Use OpenAI for tweet generation">
-                  <input type="checkbox" checked={useOpenAI} onChange={e => setUseOpenAI(e.target.checked)} disabled={!useOwnKeys} /> <span role="img" aria-label="openai">🤖</span> OpenAI
+                  <input type="checkbox" checked={useOpenAI} onChange={e => {
+                    setUseOpenAI(e.target.checked);
+                    if (!e.target.checked) {
+                      setOpenaiApiKey('');
+                      localStorage.removeItem('openaiApiKey');
+                    }
+                  }} disabled={!useOwnKeys} /> <span role="img" aria-label="openai">🤖</span> OpenAI
                 </span>
               </div>
               {usePerplexity && (
@@ -525,6 +541,15 @@ function App() {
                     alert('Gemini is selected but no API key is provided. Please enter a valid key or uncheck Gemini.');
                     return;
                   }
+                  if (useOpenAI && openaiApiKey.trim() === '') {
+                    alert('OpenAI is selected but no API key is provided. Please enter a valid key or uncheck OpenAI.');
+                    return;
+                  }
+                  // Collect all selected providers in order of fallback
+                  const aiProviders = [];
+                  if (usePerplexity) aiProviders.push('perplexity');
+                  if (useGemini) aiProviders.push('gemini');
+                  if (useOpenAI) aiProviders.push('openai');
                   if (useOwnKeys) {
                     if (usePerplexity && perplexityApiKey.trim() !== '') aiKeys.perplexityApiKey = perplexityApiKey;
                     if (useGemini && geminiApiKey.trim() !== '') aiKeys.geminiApiKey = geminiApiKey;
@@ -533,20 +558,28 @@ function App() {
                     if (DEFAULT_PERPLEXITY_KEY && DEFAULT_PERPLEXITY_KEY.trim() !== '') aiKeys.perplexityApiKey = DEFAULT_PERPLEXITY_KEY;
                     if (DEFAULT_GEMINI_KEY && DEFAULT_GEMINI_KEY.trim() !== '') aiKeys.geminiApiKey = DEFAULT_GEMINI_KEY;
                   }
+                  // Only send keys for selected providers
+                  const payload = {
+                    aiPrompt: aiPrompt,
+                    userName: userName,
+                    aiProviders,
+                    twitterApiKey: twitterApiKey,
+                    twitterApiSecret: twitterApiSecret,
+                    twitterAccessToken: twitterAccessToken,
+                    twitterAccessSecret: twitterAccessSecret,
+                    useOwnKeys
+                  };
+                  aiProviders.forEach(provider => {
+                    if (provider === 'perplexity' && aiKeys.perplexityApiKey) payload.perplexityApiKey = aiKeys.perplexityApiKey;
+                    if (provider === 'gemini' && aiKeys.geminiApiKey) payload.geminiApiKey = aiKeys.geminiApiKey;
+                    if (provider === 'openai' && aiKeys.openaiApiKey) payload.openaiApiKey = aiKeys.openaiApiKey;
+                  });
                   fetch(`${BACKEND_URL}/generate-tweet`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                      aiPrompt: aiPrompt,
-                      userName: userName,
-                      ...(aiKeys),
-                      twitterApiKey: twitterApiKey,
-                      twitterApiSecret: twitterApiSecret,
-                      twitterAccessToken: twitterAccessToken,
-                      twitterAccessSecret: twitterAccessSecret
-                    })
+                    body: JSON.stringify(payload)
                   })
                     .then(response => response.json())
                     .then(data => {
@@ -647,4 +680,4 @@ function App() {
   )
 }
 
-export default App
+export default App;
