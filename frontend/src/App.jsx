@@ -650,6 +650,53 @@ function App() {
                 </button>
               </div>
 
+              {/* bulk prompt entry */}
+
+              <div style ={{ marginTop: '1rem'}}>
+                <h3> Bulk prompt entry</h3>
+                <textarea 
+                  value={bulkPrompts}
+                  onChange = {e => setBulkPrompts(e.target.value)}
+                  placeholder= "Enter prompts separated by new lines"
+                  rows={8}
+                  style = {{width: '100%', marginBottom: '1rem'}}
+                  />
+                  <button 
+                    onClick={async () => {
+                      const prompts = bulkPrompts.split('\n').map(p => p.trim()).filter(p => p.length >0);
+
+                      // agar prompts add na ho to alert
+                      if (prompts.length === 0){
+                        alert("please enter atleast one prompt");
+                        return;
+                      }
+
+                      // sending prompts to backend
+
+                      const response =  await fetch (`${BACKEND_URL}/generate-bulk-tweets`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ prompts })
+                      });
+
+                        //parsing
+                      const data = await response.json();
+                      if (data.success) {
+                        alert('prmopts submitted succesffully!');
+                        setBulkPrompts(''); // emptying area
+
+                      }else{
+                        alert('Error generating tweets: ' + data.message);
+                      }
+                    }}
+              >
+                Submit Prompts
+              </button>
+
+
+
               {/* Logout Button */}
               <button
                 className="logout-btn"
