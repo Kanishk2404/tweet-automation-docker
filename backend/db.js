@@ -1,14 +1,11 @@
-const path = require('path');
 const { Sequelize } = require('sequelize');
-const fs = require('fs');
-const dbDir = path.join(__dirname, 'db');
-if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir);
-}
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: path.join(dbDir, 'database.sqlite'),
-    logging: false
+
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: 'postgres',
+  dialectOptions: {
+    ssl: process.env.NODE_ENV === 'production' ? { require: true, rejectUnauthorized: false } : false
+  },
+  logging: false
 });
 
-module.exports = sequelize;  
+module.exports = sequelize;
