@@ -615,7 +615,13 @@ function App() {
                         {t.imageUrl && <div style={{ marginBottom: 4 }}><b>Image:</b> <a href={t.imageUrl} target="_blank" rel="noopener noreferrer">View</a></div>}
                         <div style={{ marginBottom: 4 }}><b>Scheduled:</b> {new Date(t.scheduledTime).toLocaleString()}</div>
                         <div style={{ marginBottom: 4 }}><b>Status:</b> {t.status}</div>
-                        {/* Delete button removed as requested */}
+                        <button
+                          style={{ position: 'absolute', top: 8, right: 8, background: '#f44336', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 13 }}
+                          onClick={() => handleDeleteScheduled(t.id)}
+                          title="Delete scheduled post"
+                        >
+                          Delete
+                        </button>
                       </li>
                     ))}
                 </ul>

@@ -1,3 +1,7 @@
+// --- Delete scheduled tweet endpoint ---
+// Place this after app and models are initialized
+// (Moved below, after app and models are initialized)
+// --- Delete scheduled tweet endpoint ---
 
 
 // --- Bulk scheduling endpoint (must be after app and models are initialized) ---
@@ -131,6 +135,23 @@ const ScheduledTweet = ScheduledTweetModel(sequelize);
 sequelize.sync().then(() => {
     console.log('Database synced!');
 });
+
+// --- Delete scheduled tweet endpoint ---
+// Now correctly placed after app and models are initialized
+app.delete('/scheduled-tweets/:id', async (req, res) => {
+    try {
+        const tweetId = req.params.id;
+        const tweet = await ScheduledTweet.findByPk(tweetId);
+        if (!tweet) {
+            return res.status(404).json({ success: false, message: "Scheduled tweet not found" });
+        }
+        await tweet.destroy();
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Failed to delete scheduled tweet", error: error.message });
+    }
+});
+// --- Delete scheduled tweet endpoint ---
 
 
 // Configure multer for image uploads
