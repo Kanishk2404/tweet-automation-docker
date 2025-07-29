@@ -2,9 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import TweetHistory from './components/TweetHistory';
 import ThreadModal from './components/ThreadModal';
+
+
 import BulkPromptInput from './components/BulkPromptInput';
-import ScheduleOptions from './components/ScheduleOptions';
 import SchedulePicker from './components/SchedulePicker';
+
 
 const BACKEND_URL = import.meta.env.VITE_API_URL;
 
@@ -43,10 +45,27 @@ function App() {
   // Track the last AI image URL (for OpenAI)
   const [aiImageUrl, setAiImageUrl] = useState('');
   const [showBulkPromptInput, setShowBulkPromptInput] = useState(false);
-  const [schedule, setSchedule] = useState({ type: 'once', times: null });
+  // const [schedule, setSchedule] = useState({ type: 'once', times: null });
+  // Scheduled tweets state
+  const [scheduledTweets, setScheduledTweets] = useState([]);
+  const [showScheduled, setShowScheduled] = useState(false);
+
+  // Fetch scheduled tweets for the logged-in user
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetch(`${BACKEND_URL}/scheduled-tweets`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setScheduledTweets(data.scheduledTweets || []);
+          }
+        });
+    }
+  }, [isLoggedIn, showScheduled]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   
   const [scheduledDateTime, setScheduledDateTime] = useState('');
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const handleBulkSubmit = (promptsArray) =>{
     console.log('Prompts:', promptsArray);
     // do something with the promptsArray
@@ -424,7 +443,7 @@ function App() {
             boxSizing: 'border-box',
           }}
         >
-          {/* Tweet History on the extreme left */}
+          {/* Tweet History and Scheduled Posts on the extreme left */}
           <div
             className="tweet-history-wrapper"
             style={{
@@ -440,7 +459,38 @@ function App() {
               marginBottom: 16,
             }}
           >
-            <TweetHistory ref={tweetHistoryRef} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontWeight: 600 }}>History</span>
+              <button style={{ fontSize: 13, padding: '2px 8px' }} onClick={() => setShowScheduled(s => !s)}>
+                {showScheduled ? 'Hide Scheduled' : 'Show Scheduled'}
+              </button>
+            </div>
+            {!showScheduled && <TweetHistory ref={tweetHistoryRef} />}
+            {showScheduled && (
+              <div>
+                <h3 style={{ margin: '10px 0 8px 0', fontSize: 17 }}>Scheduled Posts</h3>
+                {scheduledTweets.length === 0 && <div style={{ color: '#888', fontSize: 15 }}>No scheduled posts.</div>}
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {scheduledTweets
+                    .filter(t => t.userName === userName)
+                    .map(t => (
+                      <li key={t.id} style={{
+                        background: '#fff',
+                        borderRadius: 6,
+                        boxShadow: '0 1px 2px #0001',
+                        marginBottom: 10,
+                        padding: 10,
+                        fontSize: 15
+                      }}>
+                        <div style={{ marginBottom: 4 }}><b>Content:</b> {t.content}</div>
+                        {t.imageUrl && <div style={{ marginBottom: 4 }}><b>Image:</b> <a href={t.imageUrl} target="_blank" rel="noopener noreferrer">View</a></div>}
+                        <div style={{ marginBottom: 4 }}><b>Scheduled:</b> {new Date(t.scheduledTime).toLocaleString()}</div>
+                        <div style={{ marginBottom: 4 }}><b>Status:</b> {t.status}</div>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
           </div>
           {/* Tweet Generator on the right */}
           <div
@@ -469,7 +519,9 @@ function App() {
             >
               {!isCollapsed && (
                 <>
-                  <h2>Create your tweet ({userName})</h2>
+
+
+              <h2>Create your tweet ({userName})</h2>
 
               <textarea
                 value={tweetContent}
@@ -480,11 +532,68 @@ function App() {
               />
               <p className={`character-counter ${tweetContent.length > 260 ? 'warning' : ''}`}>Characters: {tweetContent.length}/280</p>
 
+              {/* Schedule Button and Picker (correctly placed under textarea) */}
+              <div style={{ marginBottom: 12 }}>
+                <button
+                  style={{ marginRight: 8 }}
+                  onClick={() => setShowSchedulePicker(true)}
+                >
+                  Schedule
+                </button>
+                {showSchedulePicker && (
+                  <div style={{ display: 'inline-block', marginLeft: 8 }}>
+                    <SchedulePicker
+                      value={scheduledDateTime}
+                      onChange={val => setScheduledDateTime(val)}
+                    />
+                    <button
+                      style={{ marginLeft: 8 }}
+                      disabled={tweetContent.length === 0 || tweetContent.length > 280 || !scheduledDateTime}
+                      onClick={async () => {
+                        // Prepare payload for scheduling
+                        const payload = {
+                          userName,
+                          content: tweetContent,
+                          imageUrl: aiImageUrl || null,
+                          scheduledTime: scheduledDateTime,
+                          twitterApiKey,
+                          twitterApiSecret,
+                          twitterAccessToken,
+                          twitterAccessSecret
+                        };
+                        try {
+                          const response = await fetch(`${BACKEND_URL}/schedule-tweet`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                          });
+                          const data = await response.json();
+                          if (data.success) {
+                            alert('Tweet scheduled successfully!');
+                            setScheduledDateTime('');
+                            setTweetContent('');
+                            setAiImageUrl('');
+                            setSelectedImage(null);
+                            setImagePreview(null);
+                          } else {
+                            alert('Failed to schedule tweet: ' + (data.message || 'Unknown error'));
+                          }
+                        } catch (err) {
+                          alert('Error connecting to backend for scheduling.');
+                        }
+                        setShowSchedulePicker(false);
+                      }}
+                    >
+                      Schedule Tweet
+                    </button>
+                    <button style={{ marginLeft: 8 }} onClick={() => setShowSchedulePicker(false)}>Cancel</button>
+                  </div>
+                )}
+              </div>
+
+             
               {/* Schedule Picker under textarea */}
-              <SchedulePicker
-                value={scheduledDateTime}
-                onChange={setScheduledDateTime}
-              />
+
 
               {/* Image Upload Section */}
               <div className="image-upload-section">
@@ -748,9 +857,7 @@ function App() {
                       style={{ width: '100%' }}
                     />
                   </div>
-                  <div style={{ width: '100%' }}>
-                    <ScheduleOptions onChange={setSchedule} />
-                  </div>
+
                   <button
                     style={{ marginTop: 16, alignSelf: 'flex-end' }}
                     onClick={() => {

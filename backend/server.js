@@ -1,3 +1,63 @@
+
+// Background scheduler: checks every 30s for due scheduled tweets
+setInterval(async () => {
+    const now = new Date();
+    try {
+        const dueTweets = await ScheduledTweet.findAll({
+            where: {
+                status: 'pending',
+                scheduledTime: { [require('sequelize').Op.lte]: now }
+            }
+        });
+        for (const tweet of dueTweets) {
+            try {
+                // Post the tweet using the same logic as /post-tweet
+                let twitterClient = new TwitterApi({
+                    appKey: tweet.twitterApiKey,
+                    appSecret: tweet.twitterApiSecret,
+                    accessToken: tweet.twitterAccessToken,
+                    accessSecret: tweet.twitterAccessSecret,
+                });
+                let mediaId = null;
+                if (tweet.imageUrl) {
+                    // Download and upload image
+                    const response = await fetch(tweet.imageUrl);
+                    if (!response.ok) throw new Error('Failed to fetch image from URL');
+                    const buffer = await response.buffer();
+                    let ext = 'jpg';
+                    if (tweet.imageUrl.endsWith('.png') || response.headers.get('content-type') === 'image/png') ext = 'png';
+                    const tempPath = `uploads/scheduled-image-${Date.now()}.${ext}`;
+                    require('fs').writeFileSync(tempPath, buffer);
+                    mediaId = await twitterClient.v1.uploadMedia(tempPath);
+                    require('fs').unlinkSync(tempPath);
+                }
+                const tweetPayload = { text: tweet.content };
+                if (mediaId) tweetPayload.media = { media_ids: [mediaId] };
+                const posted = await twitterClient.v2.tweet(tweetPayload);
+                tweet.status = 'posted';
+                tweet.postedTweetId = posted.data.id;
+                await tweet.save();
+                // Also save to Tweet table
+                await Tweet.create({
+                    userName: tweet.userName || 'Unknown',
+                    content: tweet.content,
+                    imageUrl: tweet.imageUrl || null,
+                    twitterId: posted.data.id
+                });
+                console.log('Scheduled tweet posted:', posted.data.id);
+            } catch (err) {
+                tweet.status = 'failed';
+                tweet.errorMessage = err.message;
+                await tweet.save();
+                console.error('Failed to post scheduled tweet:', err);
+            }
+        }
+    } catch (err) {
+        console.error('Scheduler error:', err);
+    }
+}, 30000);
+// --- Sanitization helpers ---
+// ...existing code...
 // --- Sanitization helpers ---
 const sanitizeInput = (str) => {
   if (typeof str !== 'string') return '';
@@ -47,10 +107,13 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const OpenAI = require('openai');
 const fetch = require('node-fetch');
 const sequelize = require('./db');
-const TweetModel = require('./models/tweet');       
 
-// Initialize Sequelize and Tweet model
+const TweetModel = require('./models/tweet');
+const ScheduledTweetModel = require('./models/scheduledTweet');
+
+// Initialize Sequelize models
 const Tweet = TweetModel(sequelize);
+const ScheduledTweet = ScheduledTweetModel(sequelize);
 
 sequelize.sync().then(() => {
     console.log('Database synced!');
@@ -756,6 +819,62 @@ app.post('/post-thread', async (req, res) => {
         });
     }
 });
+// --- /schedule-tweet endpoint ---
+app.post('/schedule-tweet', async (req, res) => {
+    try {
+        const {
+            userName,
+            content,
+            imageUrl,
+            scheduledTime,
+            twitterApiKey,
+            twitterApiSecret,
+            twitterAccessToken,
+            twitterAccessSecret
+        } = req.body;
+
+        // Basic validation
+        if (!userName || !content || !scheduledTime || !twitterApiKey || !twitterApiSecret || !twitterAccessToken || !twitterAccessSecret) {
+            return res.status(400).json({ success: false, message: 'Missing required fields.' });
+        }
+        if (content.length > 280) {
+            return res.status(400).json({ success: false, message: 'Tweet content exceeds 280 characters.' });
+        }
+
+        // Save to ScheduledTweet table
+        await ScheduledTweet.create({
+            userName,
+            content,
+            imageUrl: imageUrl || null,
+            scheduledTime,
+            twitterApiKey,
+            twitterApiSecret,
+            twitterAccessToken,
+            twitterAccessSecret,
+            status: 'pending'
+        });
+
+        res.json({ success: true, message: 'Tweet scheduled successfully!' });
+    } catch (error) {
+        console.error('Error scheduling tweet:', error);
+        res.status(500).json({ success: false, message: 'Failed to schedule tweet', error: error.message });
+    }
+});
+
+
+// --- View scheduled tweets endpoint ---
+app.get('/scheduled-tweets', async (req, res) => {
+    try {
+        const scheduledTweets = await ScheduledTweet.findAll({
+            order: [['scheduledTime', 'ASC']]
+        });
+        res.json({ success: true, scheduledTweets });
+    } catch (error) {
+        console.error('Error fetching scheduled tweets:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch scheduled tweets', error: error.message });
+    }
+});
+
 app.post('/test-alive', (req, res) => res.json({ ok: true }));
 // Start server
 app.listen(PORT, () => {
