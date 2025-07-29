@@ -303,8 +303,7 @@ function App() {
             boxShadow: '0 1px 6px #0001',
             padding: '24px 32px',
             marginBottom: '2rem',
-            maxWidth: 900,
-            minWidth: 400,
+            maxWidth: 600,
             marginLeft: 'auto',
             marginRight: 'auto',
             display: 'flex',
@@ -444,82 +443,81 @@ function App() {
               alignItems: 'stretch',
               marginBottom: '1rem',
               width: '100%',
-              maxWidth: '1000px',
-              minWidth: '400px',
+              maxWidth: '700px',
               marginLeft: 'auto',
               marginRight: 'auto',
             }}>
               <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
                 <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterApiKey}
-                onChange={e => setTwitterApiKey(e.target.value)}
-                onFocus={e => {
-                  if (!twitterApiKey && localStorage.getItem('twitterApiKey')) {
-                    setTwitterApiKey(localStorage.getItem('twitterApiKey'));
-                  }
-                }}
-                placeholder="Twitter API Key"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-api-key"
-                style={{flex: 1, minWidth: 0, width: '100%', fontSize: 15, letterSpacing: '0.5px', padding: '8px 12px', maxWidth: 480}}
-              />
+                <input
+                  type="password"
+                  value={twitterApiKey}
+                  onChange={e => setTwitterApiKey(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterApiKey && localStorage.getItem('twitterApiKey')) {
+                      setTwitterApiKey(localStorage.getItem('twitterApiKey'));
+                    }
+                  }}
+                  placeholder="Twitter API Key"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-api-key"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
                 <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterApiSecret}
-                onChange={e => setTwitterApiSecret(e.target.value)}
-                onFocus={e => {
-                  if (!twitterApiSecret && localStorage.getItem('twitterApiSecret')) {
-                    setTwitterApiSecret(localStorage.getItem('twitterApiSecret'));
-                  }
-                }}
-                placeholder="Twitter API Secret"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-api-secret"
-                style={{flex: 1, minWidth: 0, width: '100%', fontSize: 15, letterSpacing: '0.5px', padding: '8px 12px', maxWidth: 480}}
-              />
+                <input
+                  type="password"
+                  value={twitterApiSecret}
+                  onChange={e => setTwitterApiSecret(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterApiSecret && localStorage.getItem('twitterApiSecret')) {
+                      setTwitterApiSecret(localStorage.getItem('twitterApiSecret'));
+                    }
+                  }}
+                  placeholder="Twitter API Secret"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-api-secret"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
                 <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterAccessToken}
-                onChange={e => setTwitterAccessToken(e.target.value)}
-                onFocus={e => {
-                  if (!twitterAccessToken && localStorage.getItem('twitterAccessToken')) {
-                    setTwitterAccessToken(localStorage.getItem('twitterAccessToken'));
-                  }
-                }}
-                placeholder="Twitter Access Token"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-access-token"
-                style={{flex: 1, minWidth: 0, width: '100%', fontSize: 15, letterSpacing: '0.5px', padding: '8px 12px', maxWidth: 480}}
-              />
+                <input
+                  type="password"
+                  value={twitterAccessToken}
+                  onChange={e => setTwitterAccessToken(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterAccessToken && localStorage.getItem('twitterAccessToken')) {
+                      setTwitterAccessToken(localStorage.getItem('twitterAccessToken'));
+                    }
+                  }}
+                  placeholder="Twitter Access Token"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-access-token"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
                 <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
-              <input
-                type="password"
-                value={twitterAccessSecret}
-                onChange={e => setTwitterAccessSecret(e.target.value)}
-                onFocus={e => {
-                  if (!twitterAccessSecret && localStorage.getItem('twitterAccessSecret')) {
-                    setTwitterAccessSecret(localStorage.getItem('twitterAccessSecret'));
-                  }
-                }}
-                placeholder="Twitter Access Secret"
-                className="login-input"
-                autoComplete="off"
-                name="twitter-access-secret"
-                style={{flex: 1, minWidth: 0, width: '100%', fontSize: 15, letterSpacing: '0.5px', padding: '8px 12px', maxWidth: 480}}
-              />
+                <input
+                  type="password"
+                  value={twitterAccessSecret}
+                  onChange={e => setTwitterAccessSecret(e.target.value)}
+                  onFocus={e => {
+                    if (!twitterAccessSecret && localStorage.getItem('twitterAccessSecret')) {
+                      setTwitterAccessSecret(localStorage.getItem('twitterAccessSecret'));
+                    }
+                  }}
+                  placeholder="Twitter Access Secret"
+                  className="login-input"
+                  autoComplete="off"
+                  name="twitter-access-secret"
+                  style={{flex: 1, minWidth: 0, width: '100%'}}
+                />
               </div>
             </div>
           </div>
