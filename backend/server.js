@@ -922,6 +922,14 @@ app.post('/generate-bulk-tweets', async (req, res) => {
         if (validOpenaiKey) providerOrder.push('openai');
         if (validGeminiKey) providerOrder.push('gemini');
     }
+    // Log which keys/providers are being used for bulk generation
+    console.log('BULK GENERATION DEBUG:');
+    console.log('Provider order:', providerOrder);
+    console.log('Valid keys:', {
+        validPerplexityKey: !!validPerplexityKey,
+        validGeminiKey: !!validGeminiKey,
+        validOpenaiKey: !!validOpenaiKey
+    });
     const axios = require('axios');
     const results = [];
     for (let i = 0; i < prompts.length; i++) {
@@ -931,6 +939,7 @@ app.post('/generate-bulk-tweets', async (req, res) => {
         for (const provider of providerOrder) {
             if (provider === 'perplexity' && validPerplexityKey && !generatedTweet) {
                 try {
+                    console.log(`[BULK][Prompt #${i+1}] Using Perplexity API key:`, validPerplexityKey.slice(0, 8) + '...' );
                     const resp = await axios.post('https://api.perplexity.ai/chat/completions', {
                         model: 'sonar-pro',
                         messages: [{ role: 'user', content: `Generate an engaging, creative tweet specifically about: ${prompt}. Include relevant emojis if appropriate.` }],
@@ -944,6 +953,7 @@ app.post('/generate-bulk-tweets', async (req, res) => {
             }
             if (provider === 'openai' && validOpenaiKey && !generatedTweet) {
                 try {
+                    console.log(`[BULK][Prompt #${i+1}] Using OpenAI API key:`, validOpenaiKey.slice(0, 8) + '...' );
                     const OpenAI = require('openai');
                     const openaiClient = new OpenAI({ apiKey: validOpenaiKey });
                     const completion = await openaiClient.chat.completions.create({
@@ -962,6 +972,7 @@ app.post('/generate-bulk-tweets', async (req, res) => {
             }
             if (provider === 'gemini' && validGeminiKey && !generatedTweet) {
                 try {
+                    console.log(`[BULK][Prompt #${i+1}] Using Gemini API key:`, validGeminiKey.slice(0, 8) + '...' );
                     const { GoogleGenerativeAI } = require('@google/generative-ai');
                     const geminiClient = new GoogleGenerativeAI(validGeminiKey);
                     const geminiModel = geminiClient.getGenerativeModel({ model: "gemini-1.5-flash" });

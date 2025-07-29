@@ -47,9 +47,12 @@ function App() {
   const [showBulkPromptInput, setShowBulkPromptInput] = useState(false);
   // Bulk prompts state
   const [bulkGeneratedTweets, setBulkGeneratedTweets] = useState([]);
-  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false); // global loading for initial bulk
+  const [promptLoading, setPromptLoading] = useState({}); // per-prompt loading
   const [bulkError, setBulkError] = useState('');
   const [showBulkReview, setShowBulkReview] = useState(false);
+  const [editingTweetIdx, setEditingTweetIdx] = useState(null);
+  const [editingTweetValue, setEditingTweetValue] = useState('');
   // Bulk scheduling state
   const [bulkScheduleType, setBulkScheduleType] = useState('once');
   const [bulkTimes, setBulkTimes] = useState(['']);
@@ -146,37 +149,56 @@ function App() {
     setBulkLoading(true);
     setBulkError('');
     setBulkGeneratedTweets([]);
-    try {
-      // Compose AI provider info
-      const aiProviders = [];
-      if (usePerplexity) aiProviders.push('perplexity');
-      if (useGemini) aiProviders.push('gemini');
-      if (useOpenAI) aiProviders.push('openai');
-      const payload = {
-        prompts: promptsArray,
-        aiProviders,
-        useOwnKeys,
-        perplexityApiKey,
-        geminiApiKey,
-        openaiApiKey
-      };
-      const response = await fetch(`${BACKEND_URL}/generate-bulk-tweets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (data.success && Array.isArray(data.results)) {
-        setBulkGeneratedTweets(data.results);
-        setShowBulkReview(true);
-      } else {
-        setBulkError(data.message || 'Failed to generate tweets.');
+    setShowBulkReview(true);
+    setPromptLoading({});
+    // Compose AI provider info
+    const aiProviders = [];
+    if (usePerplexity) aiProviders.push('perplexity');
+    if (useGemini) aiProviders.push('gemini');
+    if (useOpenAI) aiProviders.push('openai');
+    // Process prompts one by one
+    for (let i = 0; i < promptsArray.length; i++) {
+      const prompt = promptsArray[i];
+      setPromptLoading(prev => ({ ...prev, [i]: true }));
+      try {
+        const payload = {
+          prompts: [prompt],
+          aiProviders,
+          useOwnKeys,
+          perplexityApiKey,
+          geminiApiKey,
+          openaiApiKey
+        };
+        const response = await fetch(`${BACKEND_URL}/generate-bulk-tweets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.results) && data.results.length > 0) {
+          setBulkGeneratedTweets(prev => [...prev, data.results[0]]);
+        } else {
+          setBulkGeneratedTweets(prev => [...prev, { prompt, tweet: '', error: data.message || 'Failed to generate tweet.' }]);
+        }
+      } catch (err) {
+        setBulkGeneratedTweets(prev => [...prev, { prompt, tweet: '', error: 'Error connecting to backend for bulk generation.' }]);
       }
-    } catch (err) {
-      setBulkError('Error connecting to backend for bulk generation.');
+      setPromptLoading(prev => ({ ...prev, [i]: false }));
     }
     setBulkLoading(false);
     setShowBulkPromptInput(false);
+  };
+
+  // Edit and regenerate a single prompt in the review list
+  const handleEditTweet = (idx) => {
+    setEditingTweetIdx(idx);
+    setEditingTweetValue(bulkGeneratedTweets[idx].tweet);
+  };
+
+  const handleSaveEditTweet = (idx) => {
+    setBulkGeneratedTweets(prev => prev.map((item, i) => i === idx ? { ...item, tweet: editingTweetValue } : item));
+    setEditingTweetIdx(null);
+    setEditingTweetValue('');
   };
 
   // Save to localStorage on change
@@ -593,13 +615,7 @@ function App() {
                         {t.imageUrl && <div style={{ marginBottom: 4 }}><b>Image:</b> <a href={t.imageUrl} target="_blank" rel="noopener noreferrer">View</a></div>}
                         <div style={{ marginBottom: 4 }}><b>Scheduled:</b> {new Date(t.scheduledTime).toLocaleString()}</div>
                         <div style={{ marginBottom: 4 }}><b>Status:</b> {t.status}</div>
-                        <button
-                          style={{ position: 'absolute', top: 8, right: 8, background: '#f44336', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 13 }}
-                          onClick={() => handleDeleteScheduled(t.id)}
-                          title="Delete scheduled post"
-                        >
-                          Delete
-                        </button>
+                        {/* Delete button removed as requested */}
                       </li>
                     ))}
                 </ul>
@@ -1004,8 +1020,27 @@ function App() {
                           }}>
                             <div style={{ fontWeight: 600, marginBottom: 6 }}>Prompt:</div>
                             <div style={{ marginBottom: 8 }}>{item.prompt}</div>
-                            <div style={{ fontWeight: 600, marginBottom: 6 }}>Generated Tweet:</div>
-                            <div style={{ marginBottom: 8 }}>{item.tweet || <span style={{ color: 'red' }}>{item.error || 'Error'}</span>}</div>
+                            {editingTweetIdx === idx ? (
+                              <>
+                                <textarea
+                                  value={editingTweetValue}
+                                  onChange={e => setEditingTweetValue(e.target.value)}
+                                  style={{ width: '100%', marginBottom: 8 }}
+                                  rows={3}
+                                />
+                                <button
+                                  style={{ marginRight: 8 }}
+                                  onClick={() => handleSaveEditTweet(idx)}
+                                  disabled={!editingTweetValue.trim()}
+                                >Save</button>
+                                <button onClick={() => { setEditingTweetIdx(null); setEditingTweetValue(''); }}>Cancel</button>
+                              </>
+                            ) : (
+                              <>
+                                <div style={{ marginBottom: 8, whiteSpace: 'pre-wrap' }}>{item.tweet || <span style={{ color: 'red' }}>{item.error || 'Error'}</span>}</div>
+                                <button style={{ marginBottom: 8 }} onClick={() => handleEditTweet(idx)}>Edit</button>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
