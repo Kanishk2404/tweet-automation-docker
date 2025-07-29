@@ -1,6 +1,17 @@
 # Tweet Automator 🚀
 
-This is a web application that helps automate tweeting using AI for content and image generation. It is fully containerized and ready for deployment or local use with Docker Compose.
+
+Tweet Automator is a full-stack web application for AI-powered tweet, thread, and image generation, with advanced scheduling, bulk prompt input, and robust provider fallback. It is fully containerized and ready for deployment or local use with Docker Compose.
+
+**Key Features:**
+- AI tweet/thread/image generation (OpenAI, Gemini, Perplexity; user-supplied keys; provider fallback)
+- Bulk prompt input and review (edit generated tweets before scheduling)
+- Advanced scheduling (daily, twice daily, four times a week; start date and time selection)
+- Real-time review panel (see each tweet as soon as it's generated)
+- Edit generated tweets directly in review (no AI call on edit)
+- Strict content sanitization
+- History and scheduled posts view (delete disabled for scheduled posts)
+- Containerized with Docker Compose
 
 ## How to Access and Use
 
@@ -46,7 +57,9 @@ This is a web application that helps automate tweeting using AI for content and 
 `-- README.md                      # Instructions
 ```
 
-## Notes
+
+## Documentation & Troubleshooting
+- See `DOCUMENTATION.md` for a full list of features, error history, and how issues were fixed.
 - **No .env file is needed for users.** All API keys are entered in the web UI after the app loads.
 - The backend and frontend are fully containerized and networked via Docker Compose.
 - For any issues, check the logs with `docker compose logs backend` or `docker compose logs frontend`.
