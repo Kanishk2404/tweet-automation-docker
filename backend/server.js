@@ -24,6 +24,16 @@ function isValidOpenAIKey(key) {
     // OpenAI keys typically start with 'sk-' and are longer than 20 chars
     return trimmed.startsWith('sk-') && trimmed.length > 20;
 }
+
+// Provider-specific key validator
+function isValidKey(key, provider) {
+  if (!key || typeof key !== 'string') return false;
+  const trimmed = key.trim();
+  if (provider === 'openai') return trimmed.startsWith('sk-') && trimmed.length > 20;
+  if (provider === 'perplexity') return trimmed.startsWith('pplx-') && trimmed.length > 20;
+  if (provider === 'gemini') return trimmed.startsWith('AIza') && trimmed.length > 20;
+  return false;
+}
 require('dotenv').config({ path: __dirname + '/.env' });
 
 const express = require('express');
@@ -162,9 +172,9 @@ app.post('/generate-tweet', async (req, res) => {
     let validPerplexityKey, validGeminiKey, validOpenaiKey, providerOrder;
     if (useOwnKeys) {
         // Only use keys provided by the user, never fallback to .env
-        validPerplexityKey = isValidKey(perplexityApiKey) ? perplexityApiKey : null;
-        validGeminiKey = isValidKey(geminiApiKey) ? geminiApiKey : null;
-        validOpenaiKey = isValidKey(openaiApiKey) ? openaiApiKey : null;
+        validPerplexityKey = isValidKey(perplexityApiKey, 'perplexity') ? perplexityApiKey : null;
+        validGeminiKey = isValidKey(geminiApiKey, 'gemini') ? geminiApiKey : null;
+        validOpenaiKey = isValidKey(openaiApiKey, 'openai') ? openaiApiKey : null;
         providerOrder = [];
         // Only add provider if key is present AND provider is selected by frontend
         if (req.body.aiProviders && Array.isArray(req.body.aiProviders)) {
@@ -179,9 +189,9 @@ app.post('/generate-tweet', async (req, res) => {
         }
     } else {
         // Only use keys from .env, never use user-provided keys
-        validPerplexityKey = isValidKey(process.env.PERPLEXITY_API_KEY) ? process.env.PERPLEXITY_API_KEY : null;
-        validGeminiKey = isValidKey(process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY : null;
-        validOpenaiKey = isValidKey(process.env.OPENAI_API_KEY) ? process.env.OPENAI_API_KEY : null;
+        validPerplexityKey = isValidKey(process.env.PERPLEXITY_API_KEY, 'perplexity') ? process.env.PERPLEXITY_API_KEY : null;
+        validGeminiKey = isValidKey(process.env.GEMINI_API_KEY, 'gemini') ? process.env.GEMINI_API_KEY : null;
+        validOpenaiKey = isValidKey(process.env.OPENAI_API_KEY, 'openai') ? process.env.OPENAI_API_KEY : null;
         providerOrder = [];
         if (validPerplexityKey) providerOrder.push('perplexity');
         if (validOpenaiKey) providerOrder.push('openai');
@@ -263,7 +273,11 @@ app.post('/generate-tweet', async (req, res) => {
             });
         }
         // Remove quotes if the AI added them
-        const cleanTweet = sanitizeOutput(generatedTweet.replace(/^[[\"']|[\"']]$/g, ''));
+        const cleanTweet = sanitizeOutput(generatedTweet.replace(/^[["']|["']]$/g, ''));
+        const wordCount = cleanTweet.split(/\s+/).filter(Boolean).length;
+        if (wordCount > 280) {
+            return res.json({ success: false, message: "Tweet content exceeds 280 words." });
+        }
         res.json({
             success: true,
             content: cleanTweet,
@@ -702,10 +716,11 @@ app.post('/post-thread', async (req, res) => {
         const threadUrls = [];
         for (let i = 0; i < tweets.length; i++) {
             const tweetText = tweets[i];
-            if (!tweetText || tweetText.length > 280) {
+            const wordCount = tweetText.split(/\s+/).filter(Boolean).length;
+            if (!tweetText || tweetText.length > 280 || wordCount > 280) {
                 return res.status(400).json({
                     success: false,
-                    message: `Tweet #${i + 1} is empty or exceeds 280 characters.`
+                    message: `Tweet #${i + 1} is empty or exceeds 280 characters or 280 words.`
                 });
             }
             const tweetPayload = { text: tweetText };

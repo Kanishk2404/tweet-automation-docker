@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import TweetHistory from './components/TweetHistory';
+import ThreadModal from './components/ThreadModal';
+import BulkPromptInput from './components/BulkPromptInput';
+import ScheduleOptions from './components/ScheduleOptions';
+import SchedulePicker from './components/SchedulePicker';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL;
 
@@ -32,9 +36,23 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const fileInputRef = useRef(null);
-
+  const [showThreadModal, setShowThreadModal] = useState(false);
+  const [threadTweets, setThreadTweets] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [threadPrompt, setThreadPrompt] = useState('');
   // Track the last AI image URL (for OpenAI)
   const [aiImageUrl, setAiImageUrl] = useState('');
+  const [showBulkPromptInput, setShowBulkPromptInput] = useState(false);
+  const [schedule, setSchedule] = useState({ type: 'once', times: null });
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
+  const handleBulkSubmit = (promptsArray) =>{
+    console.log('Prompts:', promptsArray);
+    // do something with the promptsArray
+    console.log(promptsArray);
+    setShowBulkPromptInput(false);
+  };
 
   // Save to localStorage on change
   useEffect(() => {
@@ -83,21 +101,20 @@ function App() {
     const aiKeys = {};
     // Use user's keys if provided, else use built-in keys
     if (useOwnKeys) {
-      if (geminiApiKey) aiKeys.geminiApiKey = geminiApiKey;
       if (openaiApiKey) aiKeys.openaiApiKey = openaiApiKey;
-    } else {
-      aiKeys.geminiApiKey = DEFAULT_GEMINI_KEY;
-      // OpenAI not provided in pre-existing mode
     }
+    const payload = {
+      prompt: imagePrompt || tweetContent,
+      ...aiKeys,
+      useOwnKeys
+    };
+    console.log('Image generation payload:', payload);
     setIsImageLoading(true);
     try {
       const response = await fetch(`${BACKEND_URL}/generate-ai-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: imagePrompt || tweetContent,
-          ...aiKeys
-        })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       if (data.success && data.image) {
@@ -450,14 +467,24 @@ function App() {
                 boxSizing: 'border-box',
               }}
             >
-              <h2>Create your tweet ({userName})</h2>
+              {!isCollapsed && (
+                <>
+                  <h2>Create your tweet ({userName})</h2>
+
               <textarea
                 value={tweetContent}
                 onChange={(e) => setTweetContent(e.target.value)}
                 placeholder="what's happening?"
                 rows={4}
+                style={{ width: '100%' }}
               />
               <p className={`character-counter ${tweetContent.length > 260 ? 'warning' : ''}`}>Characters: {tweetContent.length}/280</p>
+
+              {/* Schedule Picker under textarea */}
+              <SchedulePicker
+                value={scheduledDateTime}
+                onChange={setScheduledDateTime}
+              />
 
               {/* Image Upload Section */}
               <div className="image-upload-section">
@@ -597,6 +624,38 @@ function App() {
                   {aiPrompt ? `Generate AI Content about "${aiPrompt}"` : 'Generate AI Content'}
                 </button>
 
+{/* Thread Generation Button*/}
+
+                 <button onClick={() => setShowThreadModal(true)}>
+        Generate Thread
+             </button>
+
+      <ThreadModal
+        show={showThreadModal}
+        onClose={() => setShowThreadModal(false)}
+        threadPrompt={threadPrompt}
+        setThreadPrompt={setThreadPrompt}
+        threadTweets={threadTweets}
+        setThreadTweets={setThreadTweets}
+        isGenerating={isGenerating}
+        setIsGenerating={setIsGenerating}
+        userName={userName}
+        twitterApiKey={twitterApiKey}
+        twitterApiSecret={twitterApiSecret}
+        twitterAccessToken={twitterAccessToken}
+        twitterAccessSecret={twitterAccessSecret}
+        usePerplexity={usePerplexity}
+        useGemini={useGemini}
+        useOpenAI={useOpenAI}
+        useOwnKeys={useOwnKeys}
+        perplexityApiKey={perplexityApiKey}
+        geminiApiKey={geminiApiKey}
+        openaiApiKey={openaiApiKey}
+        DEFAULT_PERPLEXITY_KEY={DEFAULT_PERPLEXITY_KEY}
+        DEFAULT_GEMINI_KEY={DEFAULT_GEMINI_KEY}
+        tweetHistoryRef={tweetHistoryRef}
+      />
+
                 <button
                   className="tweet-btn"
                   disabled={tweetContent.length === 0 || tweetContent.length > 280 || isImageLoading}
@@ -649,53 +708,60 @@ function App() {
                   Post Tweet
                 </button>
               </div>
+              </>
+              )}
 
-              {/* bulk prompt entry */}
 
-              <div style ={{ marginTop: '1rem'}}>
-                <h3> Bulk prompt entry</h3>
-                <textarea 
-                  value={bulkPrompts}
-                  onChange = {e => setBulkPrompts(e.target.value)}
-                  placeholder= "Enter prompts separated by new lines"
-                  rows={8}
-                  style = {{width: '100%', marginBottom: '1rem'}}
-                  />
-                  <button 
-                    onClick={async () => {
-                      const prompts = bulkPrompts.split('\n').map(p => p.trim()).filter(p => p.length >0);
-
-                      // agar prompts add na ho to alert
-                      if (prompts.length === 0){
-                        alert("please enter atleast one prompt");
-                        return;
-                      }
-
-                      // sending prompts to backend
-
-                      const response =  await fetch (`${BACKEND_URL}/generate-bulk-tweets`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ prompts })
-                      });
-
-                        //parsing
-                      const data = await response.json();
-                      if (data.success) {
-                        alert('prmopts submitted succesffully!');
-                        setBulkPrompts(''); // emptying area
-
-                      }else{
-                        alert('Error generating tweets: ' + data.message);
-                      }
+              {/* Bulk Prompts Button - collapse tweet panel and show bulk input */}
+              {!showBulkPromptInput && (
+                <button
+                  onClick={() => {
+                    setShowBulkPromptInput(true);
+                    setIsCollapsed(true);
+                  }}
+                  style={{ marginTop: 16 }}
+                >
+                  Bulk Prompts
+                </button>
+              )}
+              {showBulkPromptInput && (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    marginTop: 16,
+                    width: '100%'
+                  }}
+                >
+                  <div style={{ width: '100%' }}>
+                    <BulkPromptInput
+                      onSubmit={(promptsArray) => {
+                        handleBulkSubmit(promptsArray);
+                        setIsCollapsed(false);
+                        setShowBulkPromptInput(false);
+                      }}
+                      onCancel={() => {
+                        setShowBulkPromptInput(false);
+                        setIsCollapsed(false);
+                      }}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ width: '100%' }}>
+                    <ScheduleOptions onChange={setSchedule} />
+                  </div>
+                  <button
+                    style={{ marginTop: 16, alignSelf: 'flex-end' }}
+                    onClick={() => {
+                      setShowBulkPromptInput(false);
+                      setIsCollapsed(false);
                     }}
-              >
-                Submit Prompts
-              </button>
-
-
+                  >
+                    Restore Tweet Panel
+                  </button>
+                </div>
+              )}
 
               {/* Logout Button */}
               <button
