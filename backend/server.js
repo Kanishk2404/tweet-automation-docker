@@ -1,3 +1,37 @@
+// --- JWT Auth Middleware ---
+function authenticateJWT(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ success: false, message: 'No token provided.' });
+    const token = authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ success: false, message: 'No token provided.' });
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ success: false, message: 'Invalid token.' });
+        req.user = decoded;
+        next();
+    });
+}
+// --- End JWT Auth Middleware ---
+// --- API Call Limit Middleware ---
+async function checkApiLimit(req, res, next) {
+    try {
+        const user = await User.findByPk(req.user.userId);
+        if (!user) return res.status(401).json({ success: false, message: 'User not found.' });
+        if (user.apiCallCount >= 55) {
+            return res.status(403).json({ success: false, message: 'API call limit reached (55).' });
+        }
+        req.dbUser = user;
+        next();
+    } catch (err) {
+        return res.status(500).json({ success: false, message: 'API limit check failed.' });
+    }
+}
+// --- End API Call Limit Middleware ---
+// --- User Auth Dependencies ---
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
+// --- End User Auth Dependencies ---
+
 // --- Delete scheduled tweet endpoint ---
 // Place this after app and models are initialized
 // (Moved below, after app and models are initialized)
@@ -125,12 +159,16 @@ app.use(express.json());
 // Enable CORS for all routes
 app.use(cors());
 
+
 const TweetModel = require('./models/tweet');
 const ScheduledTweetModel = require('./models/scheduledTweet');
+const UserModel = require('./models/user');
+
 
 // Initialize Sequelize models
 const Tweet = TweetModel(sequelize);
 const ScheduledTweet = ScheduledTweetModel(sequelize);
+const User = UserModel(sequelize);
 
 sequelize.sync().then(() => {
     console.log('Database synced!');
@@ -239,8 +277,8 @@ app.post('/auth', (req, res) => {
     }
 });
 
-// Generate tweet endpoint
-app.post('/generate-tweet', async (req, res) => {
+// Generate tweet endpoint (protected, limited)
+app.post('/generate-tweet', authenticateJWT, checkApiLimit, async (req, res) => {
     // Sanitize input
     req.body.aiPrompt = sanitizeInput(req.body.aiPrompt);
     // Log received API keys and provider for debugging
@@ -303,6 +341,9 @@ app.post('/generate-tweet', async (req, res) => {
     const axios = require('axios');
     let generatedTweet = '';
     try {
+        // Increment API call count for user
+        req.dbUser.apiCallCount += 1;
+        await req.dbUser.save();
         for (const provider of providerOrder) {
             if (provider === 'perplexity' && validPerplexityKey && !generatedTweet) {
                 console.log('Trying Perplexity API key:', validPerplexityKey);
@@ -375,7 +416,8 @@ app.post('/generate-tweet', async (req, res) => {
         res.json({
             success: true,
             content: cleanTweet,
-            message: "Tweet generated successfully!"
+            message: "Tweet generated successfully!",
+            apiCallCount: req.dbUser.apiCallCount
         });
     } catch (error) {
         console.error('❌ Error generating tweet:', error);
@@ -387,8 +429,8 @@ app.post('/generate-tweet', async (req, res) => {
     }
 });
 
-// --- /generate-ai-image endpoint (fixed) ---
-app.post('/generate-ai-image', async (req, res) => {
+// --- /generate-ai-image endpoint (protected, limited) ---
+app.post('/generate-ai-image', authenticateJWT, checkApiLimit, async (req, res) => {
     console.log('=== IMAGE GENERATION DEBUG ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('Content-Type:', req.headers['content-type']);
@@ -446,10 +488,13 @@ app.post('/generate-ai-image', async (req, res) => {
             response_format: "url"
         });
         console.log('OpenAI image generation successful');
+        req.dbUser.apiCallCount += 1;
+        await req.dbUser.save();
         return res.json({
             success: true,
             image: response.data[0].url,
-            provider: "openai"
+            provider: "openai",
+            apiCallCount: req.dbUser.apiCallCount
         });
     } catch (error) {
         console.error('OpenAI error:', error);
@@ -475,8 +520,8 @@ app.post('/generate-ai-image', async (req, res) => {
     }
 });
 
-// --- /generate-thread endpoint ---
-app.post('/generate-thread', async (req, res) => {
+// --- /generate-thread endpoint (protected, limited) ---
+app.post('/generate-thread', authenticateJWT, checkApiLimit, async (req, res) => {
     const { prompt, aiProviders, useOwnKeys, perplexityApiKey, geminiApiKey, openaiApiKey } = req.body;
     const cleanPrompt = sanitizeInput(prompt);
     if (!cleanPrompt) {
@@ -565,7 +610,9 @@ app.post('/generate-thread', async (req, res) => {
         if (!Array.isArray(threadTweets) || threadTweets.length === 0) {
             return res.status(500).json({ success: false, message: 'AI did not return any tweets.', error: aiError ? aiError.message : undefined });
         }
-        res.json({ success: true, tweets: threadTweets });
+        req.dbUser.apiCallCount += 1;
+        await req.dbUser.save();
+        res.json({ success: true, tweets: threadTweets, apiCallCount: req.dbUser.apiCallCount });
     } catch (error) {
         console.error('Error generating thread:', error);
         res.status(500).json({ success: false, message: 'Failed to generate thread', error: error.message });
@@ -850,6 +897,57 @@ app.post('/post-thread', async (req, res) => {
         });
     }
 });
+
+
+
+// --- User Registration Endpoint ---
+app.post('/register', async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+        if (!username || !email || !password) {
+            return res.status(400).json({ success: false, message: 'All fields are required.' });
+        }
+        const existingUser = await User.findOne({ where: { [require('sequelize').Op.or]: [{ username }, { email }] } });
+        if (existingUser) {
+            return res.status(400).json({ success: false, message: 'Username or email already exists.' });
+        }
+        const passwordHash = await bcrypt.hash(password, 10);
+        const user = await User.create({ username, email, passwordHash });
+        res.json({ success: true, message: 'User registered successfully.' });
+    } catch (err) {
+        console.error('Register error:', err);
+        res.status(500).json({ success: false, message: 'Registration failed.' });
+    }
+});
+// --- End User Registration Endpoint ---
+
+// --- User Login Endpoint ---
+app.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'All fields are required.' });
+        }
+        const user = await User.findOne({ where: { username } });
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Invalid username or password.' });
+        }
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        if (!valid) {
+            return res.status(400).json({ success: false, message: 'Invalid username or password.' });
+        }
+        const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ success: true, token, apiCallCount: user.apiCallCount });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ success: false, message: 'Login failed.' });
+    }
+});
+// --- End User Login Endpoint ---
+
+
+
+
 // --- /schedule-tweet endpoint ---
 app.post('/schedule-tweet', async (req, res) => {
     try {
@@ -908,8 +1006,8 @@ app.get('/scheduled-tweets', async (req, res) => {
 
 app.post('/test-alive', (req, res) => res.json({ ok: true }));
 
-// --- Bulk tweet generation endpoint ---
-app.post('/generate-bulk-tweets', async (req, res) => {
+// --- Bulk tweet generation endpoint (protected, limited) ---
+app.post('/generate-bulk-tweets', authenticateJWT, checkApiLimit, async (req, res) => {
     const { prompts, aiProviders, useOwnKeys, perplexityApiKey, geminiApiKey, openaiApiKey } = req.body;
     if (!Array.isArray(prompts) || prompts.length === 0) {
         return res.status(400).json({ success: false, message: 'No prompts provided.' });
@@ -1017,7 +1115,9 @@ app.post('/generate-bulk-tweets', async (req, res) => {
             results.push({ prompt, tweet: cleanTweet, error: null });
         }
     }
-    res.json({ success: true, results });
+    req.dbUser.apiCallCount += 1;
+    await req.dbUser.save();
+    res.json({ success: true, results, apiCallCount: req.dbUser.apiCallCount });
 });
 
 
