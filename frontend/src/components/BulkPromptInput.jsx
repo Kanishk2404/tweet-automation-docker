@@ -1,6 +1,6 @@
 import React , {useState} from 'react';
  
-const BulkPromptInput  = ({onSumit, onCancel}) => {
+const BulkPromptInput  = ({onSubmit, onCancel}) => {
     const[bulkPrompts, setBulkPrompts] = useState('');
     const handleSubmit = () => {
         const promptsArray = bulkPrompts.split('\n').map(line => line.trim()).filter(line => line.length > 0);

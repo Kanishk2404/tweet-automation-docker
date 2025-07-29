@@ -45,31 +45,137 @@ function App() {
   // Track the last AI image URL (for OpenAI)
   const [aiImageUrl, setAiImageUrl] = useState('');
   const [showBulkPromptInput, setShowBulkPromptInput] = useState(false);
+  // Bulk prompts state
+  const [bulkGeneratedTweets, setBulkGeneratedTweets] = useState([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState('');
+  const [showBulkReview, setShowBulkReview] = useState(false);
+  // Bulk scheduling state
+  const [bulkScheduleType, setBulkScheduleType] = useState('once');
+  const [bulkTimes, setBulkTimes] = useState(['']);
+  const [bulkStartDate, setBulkStartDate] = useState(''); // Single start date for all
+  const [bulkScheduleError, setBulkScheduleError] = useState('');
+  const [bulkScheduleSuccess, setBulkScheduleSuccess] = useState('');
+
+  // Handler for scheduling all tweets in bulk
+  const handleBulkSchedule = async () => {
+    setBulkScheduleError('');
+    setBulkScheduleSuccess('');
+    try {
+      // Prepare payload
+      const tweets = bulkGeneratedTweets.map(t => ({ prompt: t.prompt, tweet: t.tweet }));
+      // Use the selected start date or today if not set
+      const today = new Date().toISOString().slice(0, 10);
+      const startDate = bulkStartDate || today;
+      const payload = {
+        tweets,
+        scheduleType: bulkScheduleType,
+        times: bulkTimes,
+        dates: [startDate],
+        userName,
+        twitterApiKey,
+        twitterApiSecret,
+        twitterAccessToken,
+        twitterAccessSecret
+      };
+      const response = await fetch(`${BACKEND_URL}/schedule-bulk-tweets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.success) {
+        setBulkScheduleSuccess(data.message || 'Bulk tweets scheduled!');
+        setBulkScheduleError('');
+        // Optionally clear review or refresh scheduled tweets
+      } else {
+        setBulkScheduleError(data.message || 'Failed to schedule bulk tweets.');
+        setBulkScheduleSuccess('');
+      }
+    } catch (err) {
+      setBulkScheduleError('Error connecting to backend for bulk scheduling.');
+      setBulkScheduleSuccess('');
+    }
+  };
   // const [schedule, setSchedule] = useState({ type: 'once', times: null });
   // Scheduled tweets state
   const [scheduledTweets, setScheduledTweets] = useState([]);
   const [showScheduled, setShowScheduled] = useState(false);
 
   // Fetch scheduled tweets for the logged-in user
+  const fetchScheduledTweets = () => {
+    fetch(`${BACKEND_URL}/scheduled-tweets`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setScheduledTweets(data.scheduledTweets || []);
+        }
+      });
+  };
   useEffect(() => {
     if (isLoggedIn) {
-      fetch(`${BACKEND_URL}/scheduled-tweets`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setScheduledTweets(data.scheduledTweets || []);
-          }
-        });
+      fetchScheduledTweets();
     }
   }, [isLoggedIn, showScheduled]);
+
+  // Handler to delete a scheduled tweet
+  const handleDeleteScheduled = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this scheduled post?')) return;
+    try {
+      const response = await fetch(`${BACKEND_URL}/scheduled-tweets/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchScheduledTweets();
+      } else {
+        alert(data.message || 'Failed to delete scheduled post.');
+      }
+    } catch (err) {
+      alert('Error deleting scheduled post.');
+    }
+  };
   const [isCollapsed, setIsCollapsed] = useState(false);
   
   const [scheduledDateTime, setScheduledDateTime] = useState('');
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
-  const handleBulkSubmit = (promptsArray) =>{
-    console.log('Prompts:', promptsArray);
-    // do something with the promptsArray
-    console.log(promptsArray);
+
+  // Bulk prompt submit: send to backend, get generated tweets, show review UI
+  const handleBulkSubmit = async (promptsArray) => {
+    setBulkLoading(true);
+    setBulkError('');
+    setBulkGeneratedTweets([]);
+    try {
+      // Compose AI provider info
+      const aiProviders = [];
+      if (usePerplexity) aiProviders.push('perplexity');
+      if (useGemini) aiProviders.push('gemini');
+      if (useOpenAI) aiProviders.push('openai');
+      const payload = {
+        prompts: promptsArray,
+        aiProviders,
+        useOwnKeys,
+        perplexityApiKey,
+        geminiApiKey,
+        openaiApiKey
+      };
+      const response = await fetch(`${BACKEND_URL}/generate-bulk-tweets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (data.success && Array.isArray(data.results)) {
+        setBulkGeneratedTweets(data.results);
+        setShowBulkReview(true);
+      } else {
+        setBulkError(data.message || 'Failed to generate tweets.');
+      }
+    } catch (err) {
+      setBulkError('Error connecting to backend for bulk generation.');
+    }
+    setBulkLoading(false);
     setShowBulkPromptInput(false);
   };
 
@@ -480,12 +586,20 @@ function App() {
                         boxShadow: '0 1px 2px #0001',
                         marginBottom: 10,
                         padding: 10,
-                        fontSize: 15
+                        fontSize: 15,
+                        position: 'relative'
                       }}>
                         <div style={{ marginBottom: 4 }}><b>Content:</b> {t.content}</div>
                         {t.imageUrl && <div style={{ marginBottom: 4 }}><b>Image:</b> <a href={t.imageUrl} target="_blank" rel="noopener noreferrer">View</a></div>}
                         <div style={{ marginBottom: 4 }}><b>Scheduled:</b> {new Date(t.scheduledTime).toLocaleString()}</div>
                         <div style={{ marginBottom: 4 }}><b>Status:</b> {t.status}</div>
+                        <button
+                          style={{ position: 'absolute', top: 8, right: 8, background: '#f44336', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 13 }}
+                          onClick={() => handleDeleteScheduled(t.id)}
+                          title="Delete scheduled post"
+                        >
+                          Delete
+                        </button>
                       </li>
                     ))}
                 </ul>
@@ -822,7 +936,8 @@ function App() {
 
 
               {/* Bulk Prompts Button - collapse tweet panel and show bulk input */}
-              {!showBulkPromptInput && (
+
+              {!showBulkPromptInput && !showBulkReview && (
                 <button
                   onClick={() => {
                     setShowBulkPromptInput(true);
@@ -833,7 +948,7 @@ function App() {
                   Bulk Prompts
                 </button>
               )}
-              {showBulkPromptInput && (
+              {(showBulkPromptInput || showBulkReview) && (
                 <div
                   style={{
                     display: 'flex',
@@ -843,30 +958,133 @@ function App() {
                     width: '100%'
                   }}
                 >
-                  <div style={{ width: '100%' }}>
-                    <BulkPromptInput
-                      onSubmit={(promptsArray) => {
-                        handleBulkSubmit(promptsArray);
-                        setIsCollapsed(false);
-                        setShowBulkPromptInput(false);
-                      }}
-                      onCancel={() => {
-                        setShowBulkPromptInput(false);
-                        setIsCollapsed(false);
-                      }}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
+                  {/* Bulk Prompt Input */}
+                  {showBulkPromptInput && !showBulkReview && (
+                    <>
+                      <BulkPromptInput
+                        onSubmit={async (promptsArray) => {
+                          await handleBulkSubmit(promptsArray);
+                          setShowBulkReview(true);
+                          setShowBulkPromptInput(false);
+                        }}
+                        onCancel={() => {
+                          setShowBulkPromptInput(false);
+                          setIsCollapsed(false);
+                        }}
+                        style={{ width: '100%' }}
+                      />
+                      <button
+                        style={{ marginTop: 16, alignSelf: 'flex-end' }}
+                        onClick={() => {
+                          setShowBulkPromptInput(false);
+                          setIsCollapsed(false);
+                        }}
+                      >
+                        Restore Tweet Panel
+                      </button>
+                    </>
+                  )}
+                  {/* Bulk Review */}
+                  {showBulkReview && (
+                    <div style={{ marginTop: 0 }}>
+                      <h3>Review Generated Tweets</h3>
+                      {bulkLoading && <div>Generating tweets...</div>}
+                      {bulkError && <div style={{ color: 'red' }}>{bulkError}</div>}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                        {bulkGeneratedTweets.map((item, idx) => (
+                          <div key={idx} style={{
+                            background: '#fff',
+                            borderRadius: 8,
+                            boxShadow: '0 1px 4px #0001',
+                            padding: 16,
+                            minWidth: 260,
+                            maxWidth: 340,
+                            flex: '1 1 260px',
+                            marginBottom: 12
+                          }}>
+                            <div style={{ fontWeight: 600, marginBottom: 6 }}>Prompt:</div>
+                            <div style={{ marginBottom: 8 }}>{item.prompt}</div>
+                            <div style={{ fontWeight: 600, marginBottom: 6 }}>Generated Tweet:</div>
+                            <div style={{ marginBottom: 8 }}>{item.tweet || <span style={{ color: 'red' }}>{item.error || 'Error'}</span>}</div>
+                          </div>
+                        ))}
+                      </div>
 
-                  <button
-                    style={{ marginTop: 16, alignSelf: 'flex-end' }}
-                    onClick={() => {
-                      setShowBulkPromptInput(false);
-                      setIsCollapsed(false);
-                    }}
-                  >
-                    Restore Tweet Panel
-                  </button>
+                      {/* Scheduling Options UI */}
+                      <div style={{ marginTop: 32, padding: 16, background: '#f7f8fa', borderRadius: 8 }}>
+                        <h4>Schedule All Tweets</h4>
+                        <div style={{ marginBottom: 12 }}>
+                          <label style={{ fontWeight: 500, marginRight: 8 }}>Frequency:</label>
+                          <select value={bulkScheduleType} onChange={e => setBulkScheduleType(e.target.value)}>
+                            <option value="once">Once a day</option>
+                            <option value="twice">Twice a day</option>
+                            <option value="four">Four times a week</option>
+                          </select>
+                        </div>
+                        <div style={{ marginBottom: 12 }}>
+                          <label style={{ fontWeight: 500, marginRight: 8 }}>Start Date:</label>
+                          <input
+                            type="date"
+                            value={bulkStartDate}
+                            onChange={e => setBulkStartDate(e.target.value)}
+                            min={new Date().toISOString().slice(0, 10)}
+                          />
+                        </div>
+                        {/* Time pickers based on schedule type */}
+                        {bulkScheduleType === 'once' && (
+                          <div style={{ marginBottom: 12 }}>
+                            <label>Time: </label>
+                            <input type="time" value={bulkTimes[0] || ''} onChange={e => setBulkTimes([e.target.value])} />
+                          </div>
+                        )}
+                        {bulkScheduleType === 'twice' && (
+                          <div style={{ marginBottom: 12 }}>
+                            <label>Time 1: </label>
+                            <input type="time" value={bulkTimes[0] || ''} onChange={e => setBulkTimes([e.target.value, bulkTimes[1] || ''])} />
+                            <label style={{ marginLeft: 12 }}>Time 2: </label>
+                            <input type="time" value={bulkTimes[1] || ''} onChange={e => setBulkTimes([bulkTimes[0] || '', e.target.value])} />
+                          </div>
+                        )}
+                        {bulkScheduleType === 'four' && (
+                          <div style={{ marginBottom: 12 }}>
+                            {[0,1,2,3].map(i => (
+                              <span key={i}>
+                                <label>Time {i+1}: </label>
+                                <input type="time" value={bulkTimes[i] || ''} onChange={e => {
+                                  const newTimes = [...bulkTimes];
+                                  newTimes[i] = e.target.value;
+                                  setBulkTimes(newTimes);
+                                }} style={{ marginRight: 8 }} />
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          style={{ marginTop: 8, fontWeight: 600 }}
+                          onClick={handleBulkSchedule}
+                          disabled={
+                            bulkGeneratedTweets.length === 0 ||
+                            bulkTimes.some(t => !t) ||
+                            !bulkStartDate
+                          }
+                        >
+                          Schedule All
+                        </button>
+                        {bulkScheduleError && <div style={{ color: 'red', marginTop: 8 }}>{bulkScheduleError}</div>}
+                        {bulkScheduleSuccess && <div style={{ color: 'green', marginTop: 8 }}>{bulkScheduleSuccess}</div>}
+                      </div>
+
+                      <button style={{ marginTop: 24 }} onClick={() => {
+                        setShowBulkReview(false);
+                        setShowBulkPromptInput(true);
+                      }}>Back to Bulk Input</button>
+                      <button style={{ marginTop: 24, marginLeft: 12 }} onClick={() => {
+                        setShowBulkReview(false);
+                        setIsCollapsed(false);
+                        setBulkGeneratedTweets([]);
+                      }}>Restore Tweet Panel</button>
+                    </div>
+                  )}
                 </div>
               )}
 

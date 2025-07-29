@@ -1,4 +1,9 @@
 
+
+// --- Bulk scheduling endpoint (must be after app and models are initialized) ---
+// Place this near other route definitions, after /schedule-tweet
+
+// (Moved after app initialization)
 // Background scheduler: checks every 30s for due scheduled tweets
 setInterval(async () => {
     const now = new Date();
@@ -108,6 +113,14 @@ const OpenAI = require('openai');
 const fetch = require('node-fetch');
 const sequelize = require('./db');
 
+const app = express();
+
+// Parse JSON bodies for all requests
+app.use(express.json());
+
+// Enable CORS for all routes
+app.use(cors());
+
 const TweetModel = require('./models/tweet');
 const ScheduledTweetModel = require('./models/scheduledTweet');
 
@@ -119,9 +132,6 @@ sequelize.sync().then(() => {
     console.log('Database synced!');
 });
 
-const app = express();
-app.use(cors());
-app.use(express.json());
 
 // Configure multer for image uploads
 const upload = multer({
@@ -876,6 +886,184 @@ app.get('/scheduled-tweets', async (req, res) => {
 });
 
 app.post('/test-alive', (req, res) => res.json({ ok: true }));
+
+// --- Bulk tweet generation endpoint ---
+app.post('/generate-bulk-tweets', async (req, res) => {
+    const { prompts, aiProviders, useOwnKeys, perplexityApiKey, geminiApiKey, openaiApiKey } = req.body;
+    if (!Array.isArray(prompts) || prompts.length === 0) {
+        return res.status(400).json({ success: false, message: 'No prompts provided.' });
+    }
+    // Limit to 25 prompts
+    if (prompts.length > 25) {
+        return res.status(400).json({ success: false, message: 'Maximum 25 prompts allowed.' });
+    }
+    // Prepare provider keys (mirroring /generate-tweet logic)
+    let validPerplexityKey, validGeminiKey, validOpenaiKey, providerOrder;
+    if (useOwnKeys) {
+        validPerplexityKey = perplexityApiKey && typeof perplexityApiKey === 'string' && perplexityApiKey.trim() ? perplexityApiKey : null;
+        validGeminiKey = geminiApiKey && typeof geminiApiKey === 'string' && geminiApiKey.trim() ? geminiApiKey : null;
+        validOpenaiKey = openaiApiKey && typeof openaiApiKey === 'string' && openaiApiKey.trim() ? openaiApiKey : null;
+        providerOrder = [];
+        if (aiProviders && Array.isArray(aiProviders)) {
+            if (validPerplexityKey && aiProviders.includes('perplexity')) providerOrder.push('perplexity');
+            if (validOpenaiKey && aiProviders.includes('openai')) providerOrder.push('openai');
+            if (validGeminiKey && aiProviders.includes('gemini')) providerOrder.push('gemini');
+        } else {
+            if (validPerplexityKey) providerOrder.push('perplexity');
+            if (validOpenaiKey) providerOrder.push('openai');
+            if (validGeminiKey) providerOrder.push('gemini');
+        }
+    } else {
+        validPerplexityKey = process.env.PERPLEXITY_API_KEY && process.env.PERPLEXITY_API_KEY.trim() ? process.env.PERPLEXITY_API_KEY : null;
+        validGeminiKey = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() ? process.env.GEMINI_API_KEY : null;
+        validOpenaiKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() ? process.env.OPENAI_API_KEY : null;
+        providerOrder = [];
+        if (validPerplexityKey) providerOrder.push('perplexity');
+        if (validOpenaiKey) providerOrder.push('openai');
+        if (validGeminiKey) providerOrder.push('gemini');
+    }
+    const axios = require('axios');
+    const results = [];
+    for (let i = 0; i < prompts.length; i++) {
+        const prompt = prompts[i];
+        let generatedTweet = '';
+        let error = null;
+        for (const provider of providerOrder) {
+            if (provider === 'perplexity' && validPerplexityKey && !generatedTweet) {
+                try {
+                    const resp = await axios.post('https://api.perplexity.ai/chat/completions', {
+                        model: 'sonar-pro',
+                        messages: [{ role: 'user', content: `Generate an engaging, creative tweet specifically about: ${prompt}. Include relevant emojis if appropriate.` }],
+                    }, {
+                        headers: { 'Authorization': `Bearer ${validPerplexityKey}` }
+                    });
+                    generatedTweet = resp.data.choices[0].message.content.trim();
+                } catch (err) {
+                    error = err?.response?.data || err?.message || err;
+                }
+            }
+            if (provider === 'openai' && validOpenaiKey && !generatedTweet) {
+                try {
+                    const OpenAI = require('openai');
+                    const openaiClient = new OpenAI({ apiKey: validOpenaiKey });
+                    const completion = await openaiClient.chat.completions.create({
+                        model: "gpt-3.5-turbo",
+                        messages: [
+                            { role: "system", content: "You are a social media expert creating engaging, concise, and shareable tweets. Keep each tweet under 280 characters, add personality, and encourage engagement." },
+                            { role: "user", content: `Generate an engaging, creative tweet specifically about: ${prompt}. Include relevant emojis if appropriate.` }
+                        ],
+                        max_tokens: 100,
+                        temperature: 0.8,
+                    });
+                    generatedTweet = completion.choices[0].message.content.trim();
+                } catch (err) {
+                    error = err?.response?.data || err?.message || err;
+                }
+            }
+            if (provider === 'gemini' && validGeminiKey && !generatedTweet) {
+                try {
+                    const { GoogleGenerativeAI } = require('@google/generative-ai');
+                    const geminiClient = new GoogleGenerativeAI(validGeminiKey);
+                    const geminiModel = geminiClient.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const result = await geminiModel.generateContent(
+                        `You are a social media expert creating engaging, concise, and shareable tweets. Keep each tweet under 280 characters, add personality, and encourage engagement.\n\nGenerate an engaging, creative tweet specifically about: ${prompt}. Include relevant emojis if appropriate.`
+                    );
+                    const response = result.response;
+                    generatedTweet = response.text().trim();
+                } catch (err) {
+                    error = err?.response?.data || err?.message || err;
+                }
+            }
+        }
+        // Sanitize and check length
+        const cleanTweet = generatedTweet ? sanitizeOutput(generatedTweet.replace(/^[\["']|[\]"']$/g, '')) : '';
+        if (cleanTweet.length > 280) {
+            results.push({ prompt, tweet: '', error: 'Generated tweet exceeds 280 characters.' });
+        } else if (!cleanTweet) {
+            results.push({ prompt, tweet: '', error: error || 'No tweet generated.' });
+        } else {
+            results.push({ prompt, tweet: cleanTweet, error: null });
+        }
+    }
+    res.json({ success: true, results });
+});
+
+
+app.post('/schedule-bulk-tweets', async (req, res) => {
+    const { tweets, scheduleType, times, userName, twitterApiKey, twitterApiSecret, twitterAccessToken, twitterAccessSecret, dates } = req.body;
+    if (!Array.isArray(tweets) || tweets.length === 0) {
+        return res.status(400).json({ success: false, message: 'No tweets provided.' });
+    }
+    if (!['once', 'twice', 'four'].includes(scheduleType)) {
+        return res.status(400).json({ success: false, message: 'Invalid schedule type.' });
+    }
+    if (!Array.isArray(times) || times.length === 0 || times.some(t => !t)) {
+        return res.status(400).json({ success: false, message: 'Invalid times.' });
+    }
+    // dates: optional array of date strings (YYYY-MM-DD), one per tweet or one for all
+    try {
+        const now = new Date();
+        let scheduledCount = 0;
+        for (let i = 0; i < tweets.length; i++) {
+            const { prompt, tweet } = tweets[i];
+            // Calculate scheduled times for each tweet
+            let scheduledTimes = [];
+            if (scheduleType === 'once') {
+                scheduledTimes = [times[0]];
+            } else if (scheduleType === 'twice') {
+                scheduledTimes = [times[0], times[1]];
+            } else if (scheduleType === 'four') {
+                scheduledTimes = [times[0], times[1], times[2], times[3]];
+            }
+            // Determine date for this tweet (from dates array, or fallback)
+            let tweetDate = null;
+            if (Array.isArray(dates) && dates.length > 0) {
+                tweetDate = dates[i] || dates[0];
+            }
+            for (const timeStr of scheduledTimes) {
+                let scheduledDate;
+                if (tweetDate) {
+                    // Use provided date (YYYY-MM-DD) and time
+                    const [year, month, day] = tweetDate.split('-').map(Number);
+                    const [hours, minutes] = timeStr.split(':').map(Number);
+                    scheduledDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+                    // If scheduledDate is in the past, move to next day
+                    if (scheduledDate < now) {
+                        scheduledDate.setDate(scheduledDate.getDate() + 1);
+                    }
+                } else {
+                    // Fallback: today or next available day
+                    const [hours, minutes] = timeStr.split(':').map(Number);
+                    scheduledDate = new Date(now);
+                    scheduledDate.setHours(hours, minutes, 0, 0);
+                    if (scheduledDate < now) {
+                        scheduledDate.setDate(scheduledDate.getDate() + 1);
+                    }
+                }
+                await ScheduledTweet.create({
+                    userName,
+                    content: tweet,
+                    imageUrl: null,
+                    scheduledTime: scheduledDate,
+                    status: 'pending',
+                    twitterApiKey,
+                    twitterApiSecret,
+                    twitterAccessToken,
+                    twitterAccessSecret
+                });
+                scheduledCount++;
+            }
+        }
+        res.json({ success: true, message: `Scheduled ${scheduledCount} tweets.` });
+    } catch (err) {
+        console.error('Bulk scheduling error:', err);
+        res.status(500).json({ success: false, message: 'Failed to schedule bulk tweets.', error: err.message });
+    }
+});
+// --- Bulk scheduling endpoint (must be after app and models are initialized) ---
+// Place this near other route definitions, after /schedule-tweet
+
+
 // Start server
 app.listen(PORT, () => {
     console.log(`Server is running on http://0.0.0.0:${PORT}`);
