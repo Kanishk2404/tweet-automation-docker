@@ -711,15 +711,22 @@ function App() {
                       disabled={tweetContent.length === 0 || tweetContent.length > 280 || !scheduledDateTime}
                       onClick={async () => {
                         // Prepare payload for scheduling
+                        const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+                        // Convert local datetime-local string to ISO with time zone
+                        let scheduledTimeIso = scheduledDateTime;
+                        if (scheduledDateTime) {
+                          scheduledTimeIso = DateTime.fromISO(scheduledDateTime, { zone: userTimeZone }).toISO();
+                        }
                         const payload = {
                           userName,
                           content: tweetContent,
                           imageUrl: aiImageUrl || null,
-                          scheduledTime: scheduledDateTime,
+                          scheduledTime: scheduledTimeIso,
                           twitterApiKey,
                           twitterApiSecret,
                           twitterAccessToken,
-                          twitterAccessSecret
+                          twitterAccessSecret,
+                          userTimeZone
                         };
                         try {
                           const response = await fetch(`${BACKEND_URL}/schedule-tweet`, {
