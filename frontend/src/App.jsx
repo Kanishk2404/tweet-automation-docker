@@ -449,13 +449,13 @@ function App() {
             </>
             <div style={{marginTop: '1rem', marginBottom: '0.5rem', fontWeight: 600, fontSize: 16}}>Twitter Credentials</div>
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px',
               alignItems: 'stretch',
               marginBottom: '1rem',
               width: '100%',
-              maxWidth: '700px',
+              maxWidth: '400px',
               marginLeft: 'auto',
               marginRight: 'auto',
             }}>
@@ -477,6 +477,9 @@ function App() {
                   style={{flex: 1, minWidth: 0, width: '100%'}}
                 />
               </div>
+              <div style={{ fontSize: 12, color: '#888', margin: '0 0 0 34px' }}>
+                Enter your Twitter/X API Key (Consumer Key)
+              </div>
               <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
                 <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
                 <input
@@ -494,6 +497,9 @@ function App() {
                   name="twitter-api-secret"
                   style={{flex: 1, minWidth: 0, width: '100%'}}
                 />
+              </div>
+              <div style={{ fontSize: 12, color: '#888', margin: '0 0 0 34px' }}>
+                Enter your Twitter/X API Secret (Consumer Secret)
               </div>
               <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
                 <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
@@ -513,6 +519,9 @@ function App() {
                   style={{flex: 1, minWidth: 0, width: '100%'}}
                 />
               </div>
+              <div style={{ fontSize: 12, color: '#888', margin: '0 0 0 34px' }}>
+                Enter your Twitter/X Access Token (OAuth 1.0a Access Token)
+              </div>
               <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
                 <span role="img" aria-label="twitter" style={{fontSize: 20}}>🐦</span>
                 <input
@@ -530,6 +539,9 @@ function App() {
                   name="twitter-access-secret"
                   style={{flex: 1, minWidth: 0, width: '100%'}}
                 />
+              </div>
+              <div style={{ fontSize: 12, color: '#888', margin: '0 0 0 34px' }}>
+                Enter your Twitter/X Access Secret (OAuth 1.0a Access Token Secret)
               </div>
             </div>
           </div>
