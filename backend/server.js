@@ -924,7 +924,8 @@ app.post('/schedule-tweet', async (req, res) => {
             twitterApiKey,
             twitterApiSecret,
             twitterAccessToken,
-            twitterAccessSecret
+            twitterAccessSecret,
+            userTimeZone
         } = req.body;
 
         // Basic validation
@@ -935,12 +936,22 @@ app.post('/schedule-tweet', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Tweet content exceeds 280 characters.' });
         }
 
+        // Convert scheduledTime from user's timezone to UTC
+        let scheduledTimeUtc = scheduledTime;
+        if (userTimeZone) {
+            try {
+                scheduledTimeUtc = DateTime.fromISO(scheduledTime, { zone: userTimeZone }).toUTC().toISO();
+            } catch (err) {
+                // fallback: use as-is
+            }
+        }
+
         // Encrypt keys before saving
         await ScheduledTweet.create({
             userName,
             content,
             imageUrl: imageUrl || null,
-            scheduledTime,
+            scheduledTime: scheduledTimeUtc,
             twitterApiKey: encrypt(twitterApiKey),
             twitterApiSecret: encrypt(twitterApiSecret),
             twitterAccessToken: encrypt(twitterAccessToken),
