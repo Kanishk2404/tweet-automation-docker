@@ -28,19 +28,19 @@ module.exports = (sequelize) => {
       defaultValue: 'pending',
     },
     twitterApiKey: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     twitterApiSecret: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     twitterAccessToken: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     twitterAccessSecret: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     postedTweetId: {

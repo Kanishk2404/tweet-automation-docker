@@ -58,19 +58,15 @@ setInterval(async () => {
                         imageUrl: tweet.imageUrl || null,
                         twitterId: posted.data.id
                     });
-                    console.log('Scheduled tweet posted:', posted.data.id);
                 } else {
-                    console.log('Duplicate tweet history prevented for Twitter ID:', posted.data.id);
                 }
             } catch (err) {
                 tweet.status = 'failed';
                 tweet.errorMessage = err.message;
                 await tweet.save();
-                console.error('Failed to post scheduled tweet:', err);
             }
         }
     } catch (err) {
-        console.error('Scheduler error:', err);
     }
 }, 30000);
 // --- Sanitization helpers ---
@@ -142,7 +138,6 @@ const Tweet = TweetModel(sequelize);
 const ScheduledTweet = ScheduledTweetModel(sequelize);
 
 sequelize.sync().then(() => {
-    console.log('Database synced!');
 });
 
 // --- Delete scheduled tweet endpoint ---
@@ -193,9 +188,7 @@ if (process.env.OPENAI_API_KEY){
     openaiClient = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
     });
-    console.log('OpenAI API initialized successfully');
 } else{
-    console.log('OpenAI API key not found. OpenAI fallback disabled.');
 }
 
 // Initialize Gemini client
@@ -204,9 +197,7 @@ let geminiModel = null;
 if (process.env.GEMINI_API_KEY) {
     geminiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     geminiModel = geminiClient.getGenerativeModel({ model: "gemini-1.5-flash" });
-    console.log('Gemini AI initialized successfully');
 } else {
-    console.log('Gemini API key not found.');
 }
 
 // Initialize Twitter client
@@ -220,9 +211,7 @@ if (process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET &&
         accessToken: process.env.TWITTER_ACCESS_TOKEN,
         accessSecret: process.env.TWITTER_ACCESS_SECRET,
     });
-    console.log('Twitter API initialized successfully');
 } else {
-    console.log('Twitter API keys not found. Tweet posting disabled.');
 }
 
 // Health check endpoint for Railway
@@ -255,15 +244,6 @@ const { encrypt } = require('./utils/crypto');
 app.post('/generate-tweet', async (req, res) => {
     // Sanitize input
     req.body.aiPrompt = sanitizeInput(req.body.aiPrompt);
-    // Log full request body for debugging user-submitted keys
-    console.log('--- /generate-tweet request body ---');
-    console.log(JSON.stringify(req.body, null, 2));
-    // Log received API keys and provider for debugging
-    console.log('Received API keys:', {
-        perplexityApiKey: !!req.body.perplexityApiKey,
-        geminiApiKey: !!req.body.geminiApiKey,
-        openaiApiKey: !!req.body.openaiApiKey
-    });
     let {
         userName,
         openaiApiKey,
@@ -284,19 +264,6 @@ app.post('/generate-tweet', async (req, res) => {
 
     // Validate and encrypt user-supplied AI keys if present and useOwnKeys is true
     if (useOwnKeys) {
-        // Debug: print raw and trimmed keys before validation
-        console.log('Raw user keys:', { openaiApiKey, perplexityApiKey, geminiApiKey });
-        console.log('Trimmed user keys:', {
-            openaiApiKey: openaiApiKey && openaiApiKey.trim(),
-            perplexityApiKey: perplexityApiKey && perplexityApiKey.trim(),
-            geminiApiKey: geminiApiKey && geminiApiKey.trim()
-        });
-        // Validate before encrypting
-        console.log('Validation results before encrypt:', {
-            openai: openaiApiKey && isValidKey(openaiApiKey, 'openai'),
-            perplexity: perplexityApiKey && isValidKey(perplexityApiKey, 'perplexity'),
-            gemini: geminiApiKey && isValidKey(geminiApiKey, 'gemini')
-        });
         if (openaiApiKey && isValidKey(openaiApiKey, 'openai')) {
             openaiApiKey = encrypt(openaiApiKey);
         } else {
@@ -1039,14 +1006,6 @@ app.post('/generate-bulk-tweets', async (req, res) => {
         if (validOpenaiKey) providerOrder.push('openai');
         if (validGeminiKey) providerOrder.push('gemini');
     }
-    // Log which keys/providers are being used for bulk generation
-    console.log('BULK GENERATION DEBUG:');
-    console.log('Provider order:', providerOrder);
-    console.log('Valid keys:', {
-        validPerplexityKey: !!validPerplexityKey,
-        validGeminiKey: !!validGeminiKey,
-        validOpenaiKey: !!validOpenaiKey
-    });
     const axios = require('axios');
     const results = [];
     for (let i = 0; i < prompts.length; i++) {
@@ -1056,7 +1015,6 @@ app.post('/generate-bulk-tweets', async (req, res) => {
         for (const provider of providerOrder) {
             if (provider === 'perplexity' && validPerplexityKey && !generatedTweet) {
                 try {
-                    console.log(`[BULK][Prompt #${i+1}] Using Perplexity API key:`, validPerplexityKey.slice(0, 8) + '...' );
                     const resp = await axios.post('https://api.perplexity.ai/chat/completions', {
                         model: 'sonar-pro',
                         messages: [{ role: 'user', content: `Generate an engaging, creative tweet specifically about: ${prompt}. Include relevant emojis if appropriate.` }],
@@ -1070,7 +1028,6 @@ app.post('/generate-bulk-tweets', async (req, res) => {
             }
             if (provider === 'openai' && validOpenaiKey && !generatedTweet) {
                 try {
-                    console.log(`[BULK][Prompt #${i+1}] Using OpenAI API key:`, validOpenaiKey.slice(0, 8) + '...' );
                     const OpenAI = require('openai');
                     const openaiClient = new OpenAI({ apiKey: validOpenaiKey });
                     const completion = await openaiClient.chat.completions.create({
@@ -1089,7 +1046,6 @@ app.post('/generate-bulk-tweets', async (req, res) => {
             }
             if (provider === 'gemini' && validGeminiKey && !generatedTweet) {
                 try {
-                    console.log(`[BULK][Prompt #${i+1}] Using Gemini API key:`, validGeminiKey.slice(0, 8) + '...' );
                     const { GoogleGenerativeAI } = require('@google/generative-ai');
                     const geminiClient = new GoogleGenerativeAI(validGeminiKey);
                     const geminiModel = geminiClient.getGenerativeModel({ model: "gemini-1.5-flash" });
