@@ -328,7 +328,7 @@ function App() {
                 <input type="radio" checked={useOwnKeys} onChange={() => setUseOwnKeys(true)} /> Use your own API keys
               </label>
               <label>
-                <input type="radio" checked={!useOwnKeys} onChange={() => setUseOwnKeys(false)} /> Use pre-existing keys
+                <input type="radio" checked={!useOwnKeys} onChange={() => setUseOwnKeys(false)} /> Use TweetGenie built-in AI
               </label>
             </div>
             <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
