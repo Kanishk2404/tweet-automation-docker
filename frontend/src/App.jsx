@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { DateTime } from 'luxon';
 import './App.css'
 import TweetHistory from './components/TweetHistory';
 import ThreadModal from './components/ThreadModal';
@@ -62,6 +63,8 @@ function App() {
 
   // Handler for scheduling all tweets in bulk
   const handleBulkSchedule = async () => {
+    // Get user's timezone
+    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     setBulkScheduleError('');
     setBulkScheduleSuccess('');
     try {
@@ -75,6 +78,7 @@ function App() {
         scheduleType: bulkScheduleType,
         times: bulkTimes,
         dates: [startDate],
+        userTimeZone,
         userName,
         twitterApiKey,
         twitterApiSecret,
@@ -111,7 +115,15 @@ function App() {
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          setScheduledTweets(data.scheduledTweets || []);
+          // Format scheduledTime to user's local timezone using luxon
+          const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+          const formatted = (data.scheduledTweets || []).map(t => ({
+            ...t,
+            scheduledTimeLocal: t.scheduledTime
+              ? DateTime.fromISO(t.scheduledTime, { zone: 'utc' }).setZone(userTimeZone).toFormat('yyyy-LL-dd HH:mm')
+              : ''
+          }));
+          setScheduledTweets(formatted);
         }
       });
   };
@@ -292,10 +304,10 @@ function App() {
 
   return (
     <>
-      <h1>Tweet Automator</h1>
+      <h1>tweetgenie</h1>
       {!isLoggedIn ? (
         <div className="login-container">
-          <h2 style={{textAlign: 'center', marginBottom: '1rem'}}>Welcome to Tweet Automator</h2>
+          <h2 style={{textAlign: 'center', marginBottom: '1rem'}}>Welcome to tweetgenie</h2>
           <p style={{textAlign: 'center', color: '#555', marginBottom: '1.5rem'}}>Submit your API keys to continue</p>
           <div className="input-section" style={{
             background: '#f7f8fa',

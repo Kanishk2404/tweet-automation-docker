@@ -21,7 +21,8 @@ module.exports = (sequelize) => {
         },
         twitterId: {
             type: DataTypes.STRING,
-            allowNull: true
+            allowNull: true,
+            unique: true // Prevent duplicate tweet records for the same Twitter post
         },
         createdAt: {
             type: DataTypes.DATE,

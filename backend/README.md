@@ -1,4 +1,4 @@
-# Tweet Automator API Server
+# tweetgenie API Server
 
 A professional backend service for automated tweet generation and management.
 

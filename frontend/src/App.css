@@ -62,7 +62,7 @@
     transform: translateY(0) scale(1);
   }
 }
-/* Responsive layout for tweet automator main panels */
+/* Responsive layout for tweetgenie main panels */
 .tweet-main-layout {
   flex-direction: row;
 }
@@ -112,7 +112,7 @@
   max-width: 500px !important;
   padding: 3rem 2.5rem 2.5rem 2.5rem !important;
 }
-/* Professional Tweet Automator Styling */
+/* Professional tweetgenie Styling */
 * {
   margin: 0;
   padding: 0;
@@ -637,7 +637,7 @@ body::before {
   66% { transform: translateY(10px) rotate(-1deg); }
 }
 
-/* Tweet Automator Header */
+/* tweetgenie Header */
 h1 {
   color: #1da1f2;
   font-size: 2.5rem;

@@ -1,4 +1,4 @@
-# Tweet Automator 🚀
+# tweetgenie 🚀
 
 This is a web application that helps automate tweeting using AI for content and image generation. It is fully containerized and ready for deployment or local use with Docker Compose.
 

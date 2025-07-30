@@ -1,4 +1,4 @@
-# From Internal Tool to Open Source: A Tweet Automator Journey 🚀
+# From Internal Tool to Open Source: A tweetgenie Journey 🚀
 
 I built an application that started as a simple tweet automation tool for our company and evolved into an incredible learning experience worth sharing.
 

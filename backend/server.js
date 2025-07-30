@@ -21,11 +21,13 @@ setInterval(async () => {
         for (const tweet of dueTweets) {
             try {
                 // Post the tweet using the same logic as /post-tweet
+                // Decrypt Twitter API keys before use
+                const { decrypt } = require('./utils/crypto');
                 let twitterClient = new TwitterApi({
-                    appKey: tweet.twitterApiKey,
-                    appSecret: tweet.twitterApiSecret,
-                    accessToken: tweet.twitterAccessToken,
-                    accessSecret: tweet.twitterAccessSecret,
+                    appKey: decrypt(tweet.twitterApiKey),
+                    appSecret: decrypt(tweet.twitterApiSecret),
+                    accessToken: decrypt(tweet.twitterAccessToken),
+                    accessSecret: decrypt(tweet.twitterAccessSecret),
                 });
                 let mediaId = null;
                 if (tweet.imageUrl) {
@@ -47,13 +49,19 @@ setInterval(async () => {
                 tweet.postedTweetId = posted.data.id;
                 await tweet.save();
                 // Also save to Tweet table
-                await Tweet.create({
-                    userName: tweet.userName || 'Unknown',
-                    content: tweet.content,
-                    imageUrl: tweet.imageUrl || null,
-                    twitterId: posted.data.id
-                });
-                console.log('Scheduled tweet posted:', posted.data.id);
+                // Prevent duplicate tweet history entries
+                const existing = await Tweet.findOne({ where: { twitterId: posted.data.id } });
+                if (!existing) {
+                    await Tweet.create({
+                        userName: tweet.userName || 'Unknown',
+                        content: tweet.content,
+                        imageUrl: tweet.imageUrl || null,
+                        twitterId: posted.data.id
+                    });
+                    console.log('Scheduled tweet posted:', posted.data.id);
+                } else {
+                    console.log('Duplicate tweet history prevented for Twitter ID:', posted.data.id);
+                }
             } catch (err) {
                 tweet.status = 'failed';
                 tweet.errorMessage = err.message;
@@ -106,6 +114,7 @@ function isValidKey(key, provider) {
 require('dotenv').config({ path: __dirname + '/.env' });
 
 const express = require('express');
+const { DateTime } = require('luxon');
 const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
@@ -219,7 +228,7 @@ if (process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET &&
 // Health check endpoint for Railway
 app.get('/', (req, res) => {
     res.json({ 
-        status: 'Tweet Automator Backend is running!',
+        status: 'tweetgenie Backend is running!',
         timestamp: new Date().toISOString(),
         services: {
             twitter: !!twitterClient,
@@ -240,16 +249,22 @@ app.post('/auth', (req, res) => {
 });
 
 // Generate tweet endpoint
+
+const { encrypt } = require('./utils/crypto');
+
 app.post('/generate-tweet', async (req, res) => {
     // Sanitize input
     req.body.aiPrompt = sanitizeInput(req.body.aiPrompt);
+    // Log full request body for debugging user-submitted keys
+    console.log('--- /generate-tweet request body ---');
+    console.log(JSON.stringify(req.body, null, 2));
     // Log received API keys and provider for debugging
     console.log('Received API keys:', {
         perplexityApiKey: !!req.body.perplexityApiKey,
         geminiApiKey: !!req.body.geminiApiKey,
         openaiApiKey: !!req.body.openaiApiKey
     });
-    const {
+    let {
         userName,
         openaiApiKey,
         perplexityApiKey,
@@ -262,13 +277,68 @@ app.post('/generate-tweet', async (req, res) => {
         useOwnKeys // true if user provides their own keys, false for pre-existing
     } = req.body;
 
+    // Declare valid*Key variables at the top
+    let validOpenaiKey = null;
+    let validPerplexityKey = null;
+    let validGeminiKey = null;
+
+    // Validate and encrypt user-supplied AI keys if present and useOwnKeys is true
+    if (useOwnKeys) {
+        // Debug: print raw and trimmed keys before validation
+        console.log('Raw user keys:', { openaiApiKey, perplexityApiKey, geminiApiKey });
+        console.log('Trimmed user keys:', {
+            openaiApiKey: openaiApiKey && openaiApiKey.trim(),
+            perplexityApiKey: perplexityApiKey && perplexityApiKey.trim(),
+            geminiApiKey: geminiApiKey && geminiApiKey.trim()
+        });
+        // Validate before encrypting
+        console.log('Validation results before encrypt:', {
+            openai: openaiApiKey && isValidKey(openaiApiKey, 'openai'),
+            perplexity: perplexityApiKey && isValidKey(perplexityApiKey, 'perplexity'),
+            gemini: geminiApiKey && isValidKey(geminiApiKey, 'gemini')
+        });
+        if (openaiApiKey && isValidKey(openaiApiKey, 'openai')) {
+            openaiApiKey = encrypt(openaiApiKey);
+        } else {
+            openaiApiKey = null;
+        }
+        if (perplexityApiKey && isValidKey(perplexityApiKey, 'perplexity')) {
+            perplexityApiKey = encrypt(perplexityApiKey);
+        } else {
+            perplexityApiKey = null;
+        }
+        if (geminiApiKey && isValidKey(geminiApiKey, 'gemini')) {
+            geminiApiKey = encrypt(geminiApiKey);
+        } else {
+            geminiApiKey = null;
+        }
+        // Debug: print encrypted keys
+        console.log('Encrypted user keys:', { openaiApiKey, perplexityApiKey, geminiApiKey });
+        // Always use decrypted value for provider selection and API calls
+        const decryptedOpenai = maybeDecrypt(openaiApiKey);
+        const decryptedPerplexity = maybeDecrypt(perplexityApiKey);
+        const decryptedGemini = maybeDecrypt(geminiApiKey);
+        validOpenaiKey = isValidKey(decryptedOpenai, 'openai') ? decryptedOpenai : null;
+        validPerplexityKey = isValidKey(decryptedPerplexity, 'perplexity') ? decryptedPerplexity : null;
+        validGeminiKey = isValidKey(decryptedGemini, 'gemini') ? decryptedGemini : null;
+        // Debug: print decrypted keys and validation after decrypt
+        console.log('Decrypted user keys:', { validOpenaiKey, validPerplexityKey, validGeminiKey });
+        console.log('Validation results after decrypt:', {
+            openai: validOpenaiKey && isValidKey(validOpenaiKey, 'openai'),
+            perplexity: validPerplexityKey && isValidKey(validPerplexityKey, 'perplexity'),
+            gemini: validGeminiKey && isValidKey(validGeminiKey, 'gemini')
+        });
+    } else {
+        // fallback to .env
+        validOpenaiKey = process.env.OPENAI_API_KEY;
+        validPerplexityKey = process.env.PERPLEXITY_API_KEY;
+        validGeminiKey = process.env.GEMINI_API_KEY;
+    }
+
     // Strictly use only keys from the selected source
-    let validPerplexityKey, validGeminiKey, validOpenaiKey, providerOrder;
+    let providerOrder;
     if (useOwnKeys) {
         // Only use keys provided by the user, never fallback to .env
-        validPerplexityKey = isValidKey(perplexityApiKey, 'perplexity') ? perplexityApiKey : null;
-        validGeminiKey = isValidKey(geminiApiKey, 'gemini') ? geminiApiKey : null;
-        validOpenaiKey = isValidKey(openaiApiKey, 'openai') ? openaiApiKey : null;
         providerOrder = [];
         // Only add provider if key is present AND provider is selected by frontend
         if (req.body.aiProviders && Array.isArray(req.body.aiProviders)) {
@@ -411,9 +481,23 @@ app.post('/generate-ai-image', async (req, res) => {
     // Simple OpenAI key validation
     let validOpenaiKey;
     if (useOwnKeys) {
-        if (openaiApiKey && typeof openaiApiKey === 'string' && openaiApiKey.trim().startsWith('sk-') && openaiApiKey.trim().length > 20) {
-            validOpenaiKey = openaiApiKey.trim();
-            console.log('Using user-provided OpenAI key');
+        const { decrypt } = require('./utils/crypto');
+        if (openaiApiKey && typeof openaiApiKey === 'string') {
+            try {
+                const decryptedKey = maybeDecrypt(openaiApiKey);
+                if (decryptedKey.trim().startsWith('sk-') && decryptedKey.trim().length > 20) {
+                    validOpenaiKey = decryptedKey.trim();
+                    console.log('Using user-provided OpenAI key (decrypted if needed)');
+                } else {
+                    throw new Error('Decrypted OpenAI key invalid');
+                }
+            } catch (e) {
+                console.log('Invalid user-provided OpenAI key (decryption failed)');
+                return res.status(400).json({
+                    success: false,
+                    message: "Valid OpenAI API key required (must start with 'sk-' and be longer than 20 chars)"
+                });
+            }
         } else {
             console.log('Invalid user-provided OpenAI key');
             return res.status(400).json({
@@ -594,11 +678,12 @@ app.post('/post-tweet', upload.single('image'), async (req, res) => {
     }
 
     // Initialize Twitter client for this request
+    const { decrypt } = require('./utils/crypto');
     let twitterClient = new TwitterApi({
-        appKey: twitterApiKey,
-        appSecret: twitterApiSecret,
-        accessToken: twitterAccessToken,
-        accessSecret: twitterAccessSecret,
+        appKey: maybeDecrypt(twitterApiKey),
+        appSecret: maybeDecrypt(twitterApiSecret),
+        accessToken: maybeDecrypt(twitterAccessToken),
+        accessSecret: maybeDecrypt(twitterAccessSecret),
     });
 
     try {
@@ -677,12 +762,21 @@ app.post('/post-tweet', upload.single('image'), async (req, res) => {
         console.log('Tweet posted successfully:', tweet.data.id);
 
         // Save tweet to the database
-        await Tweet.create({
-            userName: req.body.userName || "Unknown",
-            content: content,
-            imageUrl: imageUrl || null,
-            twitterId: tweet && tweet.data && tweet.data.id ? tweet.data.id : null,
-        })
+        // Prevent duplicate tweet history entries
+        const tweetIdVal = tweet && tweet.data && tweet.data.id ? tweet.data.id : null;
+        if (tweetIdVal) {
+            const existing = await Tweet.findOne({ where: { twitterId: tweetIdVal } });
+            if (!existing) {
+                await Tweet.create({
+                    userName: req.body.userName || "Unknown",
+                    content: content,
+                    imageUrl: imageUrl || null,
+                    twitterId: tweetIdVal,
+                });
+            } else {
+                console.log('Duplicate tweet history prevented for Twitter ID:', tweetIdVal);
+            }
+        }
         
         res.json({
             success: true,
@@ -743,11 +837,12 @@ app.delete('/tweet-history/:id', express.json(), async (req, res) => {
         let deleteClient = null;
         if (twitterApiKey && twitterApiSecret && twitterAccessToken && twitterAccessSecret) {
             const { TwitterApi } = require('twitter-api-v2');
+            const { decrypt } = require('./utils/crypto');
             deleteClient = new TwitterApi({
-                appKey: twitterApiKey,
-                appSecret: twitterApiSecret,
-                accessToken: twitterAccessToken,
-                accessSecret: twitterAccessSecret,
+                appKey: maybeDecrypt(twitterApiKey),
+                appSecret: maybeDecrypt(twitterApiSecret),
+                accessToken: maybeDecrypt(twitterAccessToken),
+                accessSecret: maybeDecrypt(twitterAccessSecret),
             });
         } else if (global.twitterClient) {
             deleteClient = global.twitterClient;
@@ -797,11 +892,12 @@ app.post('/post-thread', async (req, res) => {
     }
 
     // Initialize Twitter client for this request
+    const { decrypt } = require('./utils/crypto');
     let twitterClient = new TwitterApi({
-        appKey: twitterApiKey,
-        appSecret: twitterApiSecret,
-        accessToken: twitterAccessToken,
-        accessSecret: twitterAccessSecret,
+        appKey: maybeDecrypt(twitterApiKey),
+        appSecret: maybeDecrypt(twitterApiSecret),
+        accessToken: maybeDecrypt(twitterAccessToken),
+        accessSecret: maybeDecrypt(twitterAccessSecret),
     });
 
     try {
@@ -872,16 +968,16 @@ app.post('/schedule-tweet', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Tweet content exceeds 280 characters.' });
         }
 
-        // Save to ScheduledTweet table
+        // Encrypt keys before saving
         await ScheduledTweet.create({
             userName,
             content,
             imageUrl: imageUrl || null,
             scheduledTime,
-            twitterApiKey,
-            twitterApiSecret,
-            twitterAccessToken,
-            twitterAccessSecret,
+            twitterApiKey: encrypt(twitterApiKey),
+            twitterApiSecret: encrypt(twitterApiSecret),
+            twitterAccessToken: encrypt(twitterAccessToken),
+            twitterAccessSecret: encrypt(twitterAccessSecret),
             status: 'pending'
         });
 
@@ -1022,68 +1118,101 @@ app.post('/generate-bulk-tweets', async (req, res) => {
 
 
 app.post('/schedule-bulk-tweets', async (req, res) => {
-    const { tweets, scheduleType, times, userName, twitterApiKey, twitterApiSecret, twitterAccessToken, twitterAccessSecret, dates } = req.body;
+    const { tweets, scheduleType, times, userName, twitterApiKey, twitterApiSecret, twitterAccessToken, twitterAccessSecret, dates, userTimeZone } = req.body;
     if (!Array.isArray(tweets) || tweets.length === 0) {
         return res.status(400).json({ success: false, message: 'No tweets provided.' });
     }
-    if (!['once', 'twice', 'four'].includes(scheduleType)) {
+    if (!['once', 'twice'].includes(scheduleType)) {
         return res.status(400).json({ success: false, message: 'Invalid schedule type.' });
     }
     if (!Array.isArray(times) || times.length === 0 || times.some(t => !t)) {
         return res.status(400).json({ success: false, message: 'Invalid times.' });
     }
+    // Backend guard: for 'once', only use the first time, even if more are sent
+    let sanitizedTimes = times;
+    if (scheduleType === 'once') {
+        sanitizedTimes = [times[0]];
+    }
     // dates: optional array of date strings (YYYY-MM-DD), one per tweet or one for all
     try {
         const now = new Date();
         let scheduledCount = 0;
-        for (let i = 0; i < tweets.length; i++) {
-            const { prompt, tweet } = tweets[i];
-            // Calculate scheduled times for each tweet
-            let scheduledTimes = [];
-            if (scheduleType === 'once') {
-                scheduledTimes = [times[0]];
-            } else if (scheduleType === 'twice') {
-                scheduledTimes = [times[0], times[1]];
-            } else if (scheduleType === 'four') {
-                scheduledTimes = [times[0], times[1], times[2], times[3]];
-            }
-            // Determine date for this tweet (from dates array, or fallback)
-            let tweetDate = null;
-            if (Array.isArray(dates) && dates.length > 0) {
-                tweetDate = dates[i] || dates[0];
-            }
-            for (const timeStr of scheduledTimes) {
-                let scheduledDate;
-                if (tweetDate) {
-                    // Use provided date (YYYY-MM-DD) and time
-                    const [year, month, day] = tweetDate.split('-').map(Number);
-                    const [hours, minutes] = timeStr.split(':').map(Number);
-                    scheduledDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
-                    // If scheduledDate is in the past, move to next day
-                    if (scheduledDate < now) {
-                        scheduledDate.setDate(scheduledDate.getDate() + 1);
-                    }
+        // Improved scheduling: pair tweets with times and increment dates as needed
+        let startDate = (Array.isArray(dates) && dates.length > 0) ? dates[0] : null;
+        // Use user's timezone for all date math
+        const tz = userTimeZone || 'UTC';
+        let currentDate = startDate
+          ? DateTime.fromISO(startDate, { zone: tz })
+          : DateTime.now().setZone(tz);
+        let tweetIdx = 0;
+        if (scheduleType === 'once') {
+            // Each tweet gets its own day at the same time
+            for (let i = 0; i < tweets.length; i++) {
+                const { prompt, tweet } = tweets[i];
+                const timeStr = sanitizedTimes[0];
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                let scheduledDate = currentDate.set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
+                // Convert to UTC before saving
+                const scheduledDateUTC = scheduledDate.toUTC().toJSDate();
+                // Uniqueness check
+                const existing = await ScheduledTweet.findOne({
+                    where: { userName, content: tweet, scheduledTime: scheduledDateUTC }
+                });
+                if (!existing) {
+                    const { encrypt } = require('./utils/crypto');
+                    await ScheduledTweet.create({
+                        userName,
+                        content: tweet,
+                        imageUrl: null,
+                        scheduledTime: scheduledDateUTC,
+                        status: 'pending',
+                        twitterApiKey: encrypt(twitterApiKey),
+                        twitterApiSecret: encrypt(twitterApiSecret),
+                        twitterAccessToken: encrypt(twitterAccessToken),
+                        twitterAccessSecret: encrypt(twitterAccessSecret)
+                    });
+                    scheduledCount++;
                 } else {
-                    // Fallback: today or next available day
+                    console.log(`Duplicate scheduled tweet prevented for user ${userName} at ${scheduledDateUTC}`);
+                }
+                // Move to next day
+                currentDate = currentDate.plus({ days: 1 });
+            }
+        } else if (scheduleType === 'twice') {
+            // Two tweets per day at two times, then next day for next two tweets
+            for (let i = 0; i < tweets.length; i += 2) {
+                for (let j = 0; j < 2; j++) {
+                    if (i + j >= tweets.length) break;
+                    const { prompt, tweet } = tweets[i + j];
+                    const timeStr = sanitizedTimes[j];
                     const [hours, minutes] = timeStr.split(':').map(Number);
-                    scheduledDate = new Date(now);
-                    scheduledDate.setHours(hours, minutes, 0, 0);
-                    if (scheduledDate < now) {
-                        scheduledDate.setDate(scheduledDate.getDate() + 1);
+                    let scheduledDate = currentDate.set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
+                    // Convert to UTC before saving
+                    const scheduledDateUTC = scheduledDate.toUTC().toJSDate();
+                    // Uniqueness check
+                    const existing = await ScheduledTweet.findOne({
+                        where: { userName, content: tweet, scheduledTime: scheduledDateUTC }
+                    });
+                    if (!existing) {
+                        const { encrypt } = require('./utils/crypto');
+                        await ScheduledTweet.create({
+                            userName,
+                            content: tweet,
+                            imageUrl: null,
+                            scheduledTime: scheduledDateUTC,
+                            status: 'pending',
+                            twitterApiKey: encrypt(twitterApiKey),
+                            twitterApiSecret: encrypt(twitterApiSecret),
+                            twitterAccessToken: encrypt(twitterAccessToken),
+                            twitterAccessSecret: encrypt(twitterAccessSecret)
+                        });
+                        scheduledCount++;
+                    } else {
+                        console.log(`Duplicate scheduled tweet prevented for user ${userName} at ${scheduledDateUTC}`);
                     }
                 }
-                await ScheduledTweet.create({
-                    userName,
-                    content: tweet,
-                    imageUrl: null,
-                    scheduledTime: scheduledDate,
-                    status: 'pending',
-                    twitterApiKey,
-                    twitterApiSecret,
-                    twitterAccessToken,
-                    twitterAccessSecret
-                });
-                scheduledCount++;
+                // Move to next day after two tweets
+                currentDate = currentDate.plus({ days: 1 });
             }
         }
         res.json({ success: true, message: `Scheduled ${scheduledCount} tweets.` });
@@ -1095,6 +1224,15 @@ app.post('/schedule-bulk-tweets', async (req, res) => {
 // --- Bulk scheduling endpoint (must be after app and models are initialized) ---
 // Place this near other route definitions, after /schedule-tweet
 
+
+// Helper: only decrypt if value looks encrypted (contains colon and is long enough)
+function maybeDecrypt(key) {
+  if (typeof key === 'string' && key.includes(':') && key.length > 40) {
+    const { decrypt } = require('./utils/crypto');
+    return decrypt(key);
+  }
+  return key;
+}
 
 // Start server
 app.listen(PORT, () => {
