@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { authAPI } from '../services/api';
+import { ROUTES } from '../utils/constants';
 
 const Navbar = ({ isAuthenticated, onLogout, onShowAuth }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,12 +11,10 @@ const Navbar = ({ isAuthenticated, onLogout, onShowAuth }) => {
 
     const handleLogout = async () => {
         try {
-            await axios.post('http://localhost:5000/api/auth/logout', {}, {
-                withCredentials: true
-            });
+            await authAPI.logout();
             onLogout();
             toast.success('Logged out successfully');
-            navigate('/');
+            navigate(ROUTES.HOME);
         } catch (error) {
             console.error('Logout error:', error);
             toast.error('Logout failed');
@@ -24,28 +23,28 @@ const Navbar = ({ isAuthenticated, onLogout, onShowAuth }) => {
 
     const handleSignIn = () => {
         onShowAuth('login');
-        navigate('/');
+        navigate(ROUTES.HOME);
     };
 
     const handleGetStarted = () => {
         onShowAuth('signup');
-        navigate('/');
+        navigate(ROUTES.HOME);
     };
 
     const handleDashboard = () => {
-        navigate('/dashboard');
+        navigate(ROUTES.DASHBOARD);
     };
 
     const handleProfile = () => {
-        navigate('/profile');
+        navigate(ROUTES.PROFILE);
     };
 
     const handleHome = () => {
         if (isAuthenticated) {
-            navigate('/dashboard');
+            navigate(ROUTES.DASHBOARD);
         } else {
             onShowAuth('landing');
-            navigate('/');
+            navigate(ROUTES.HOME);
         }
     };
 
@@ -87,9 +86,9 @@ const Navbar = ({ isAuthenticated, onLogout, onShowAuth }) => {
                         <div className="hidden md:flex items-center space-x-8">
                             <button
                                 onClick={handleDashboard}
-                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/dashboard'
-                                        ? 'text-indigo-600 bg-indigo-50'
-                                        : 'text-gray-700 hover:text-indigo-600'
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === ROUTES.DASHBOARD
+                                    ? 'text-indigo-600 bg-indigo-50'
+                                    : 'text-gray-700 hover:text-indigo-600'
                                     }`}
                             >
                                 Dashboard
@@ -118,9 +117,9 @@ const Navbar = ({ isAuthenticated, onLogout, onShowAuth }) => {
                             <>
                                 <button
                                     onClick={handleProfile}
-                                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/profile'
-                                            ? 'text-indigo-600 bg-indigo-50'
-                                            : 'text-gray-700 hover:text-indigo-600'
+                                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === ROUTES.PROFILE
+                                        ? 'text-indigo-600 bg-indigo-50'
+                                        : 'text-gray-700 hover:text-indigo-600'
                                         }`}
                                 >
                                     Profile
@@ -187,18 +186,18 @@ const Navbar = ({ isAuthenticated, onLogout, onShowAuth }) => {
                                 <>
                                     <button
                                         onClick={handleDashboard}
-                                        className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${location.pathname === '/dashboard'
-                                                ? 'text-indigo-600 bg-indigo-50'
-                                                : 'text-gray-700 hover:text-indigo-600'
+                                        className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${location.pathname === ROUTES.DASHBOARD
+                                            ? 'text-indigo-600 bg-indigo-50'
+                                            : 'text-gray-700 hover:text-indigo-600'
                                             }`}
                                     >
                                         Dashboard
                                     </button>
                                     <button
                                         onClick={handleProfile}
-                                        className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${location.pathname === '/profile'
-                                                ? 'text-indigo-600 bg-indigo-50'
-                                                : 'text-gray-700 hover:text-indigo-600'
+                                        className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${location.pathname === ROUTES.PROFILE
+                                            ? 'text-indigo-600 bg-indigo-50'
+                                            : 'text-gray-700 hover:text-indigo-600'
                                             }`}
                                     >
                                         Profile
